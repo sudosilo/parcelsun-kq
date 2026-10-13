@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- parcelsun-kq v2 : parcel locker solar heat model -->
+<!-- parcelsun-kq v3 : parcel locker solar heat model -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Parcelsun V2</title>
+<title>Parcelsun V3</title>
 <style>
   :root {
     --bg: #f4f1ea;
@@ -83,7 +83,7 @@
 <body>
 <header>
   <div class="brand">
-    <h1>PARCELSUN</h1><span class="badge">V2</span>
+    <h1>PARCELSUN</h1><span class="badge">V3</span>
   </div>
   <div class="sub">PARCEL LOCKER HEAT MODEL</div>
   <button id="infoBtn">Info</button>
@@ -155,11 +155,16 @@
   <section class="card">
     <h2>Locker</h2>
     <div class="grid">
-      <label class="field"><span>Modules left of console</span><input type="number" id="nL" min="0" max="6" value="1" data-build></label>
+      <label class="field"><span>Modules left of console</span><input type="number" id="nL" min="0" max="6" value="2" data-build></label>
       <label class="field"><span>Modules right of console</span><input type="number" id="nR" min="0" max="6" value="1" data-build></label>
-      <label class="field"><span>Doors per column</span><input type="number" id="rows" min="4" max="20" value="12" data-build></label>
+      <label class="field"><span>Door layout</span>
+        <select id="doorLayout" data-build>
+          <option value="photo">Mixed sizes, field style</option>
+          <option value="even">Even rows</option>
+        </select></label>
+      <label class="field"><span>Doors per column (even rows)</span><input type="number" id="rows" min="4" max="20" value="12" data-build></label>
       <label class="field"><span>Module width (in)</span><input type="number" id="modW" min="18" max="60" value="36" data-build></label>
-      <label class="field"><span>Module height (in)</span><input type="number" id="modH" min="48" max="108" value="84" data-build></label>
+      <label class="field"><span>Module height (in)</span><input type="number" id="modH" min="48" max="108" value="76" data-build></label>
       <label class="field"><span>Module depth (in)</span><input type="number" id="modD" min="12" max="40" value="25" data-build></label>
       <label class="field"><span>Paint</span>
         <select id="color" data-build>
@@ -182,15 +187,21 @@
       <label class="field"><span>Power strip and supplies (W)</span><input type="number" id="wPower" min="0" max="200" value="20"></label>
       <label class="field"><span>Low power console total (W)</span><input type="number" id="wLow" min="0" max="100" value="10"></label>
       <label class="field"><span>Back louver venting (W/K)</span><input type="number" id="vent" min="0" max="60" step="0.5" value="5"></label>
-      <label class="field"><span>Screen width (in)</span><input type="number" id="scrW" min="6" max="30" value="15" data-build></label>
-      <label class="field"><span>Screen height (in)</span><input type="number" id="scrH" min="4" max="24" value="10" data-build></label>
-      <label class="field full"><span>Screen center above ground (in)</span><input type="number" id="scrY" min="20" max="80" value="50" data-build></label>
+      <label class="field"><span>Screen column</span>
+        <select id="scrCol" data-build>
+          <option value="left">Left column</option>
+          <option value="right">Right column</option>
+          <option value="center">Across both</option>
+        </select></label>
+      <label class="field"><span>Screen width (in)</span><input type="number" id="scrW" min="4" max="30" value="9" data-build></label>
+      <label class="field"><span>Screen height (in)</span><input type="number" id="scrH" min="3" max="24" value="7" data-build></label>
+      <label class="field full"><span>Screen center above ground (in)</span><input type="number" id="scrY" min="20" max="80" value="42" data-build></label>
 
       <div class="subhead">Top board strip and hat</div>
-      <label class="field"><span>Board strip height (in)</span><input type="number" id="stripH" min="2" max="16" value="6" data-build></label>
+      <label class="field"><span>Board strip height (in)</span><input type="number" id="stripH" min="2" max="16" value="4" data-build></label>
       <label class="field"><span>Door boards per module (W)</span><input type="number" id="wDoorBoard" min="0" max="60" value="4"></label>
       <label class="check full"><input type="checkbox" id="hat" checked data-build> Hat on top with light</label>
-      <label class="field"><span>Hat overhang (in)</span><input type="number" id="hatOver" min="0" max="24" value="2" data-build></label>
+      <label class="field"><span>Hat overhang (in)</span><input type="number" id="hatOver" min="0" max="24" value="1" data-build></label>
       <label class="field"><span>Hat light (W)</span><input type="number" id="wLight" min="0" max="60" value="10"></label>
     </div>
   </section>
@@ -244,7 +255,7 @@
     </div>
   </section>
 
-  <footer>parcelsun-kq v2</footer>
+  <footer>parcelsun-kq v3</footer>
 </main>
 
 <div id="infoModal">
@@ -290,7 +301,7 @@ const ASHRAE = [[1230,.142,.058],[1215,.144,.060],[1186,.156,.071],[1136,.180,.0
 // Las Vegas valley average daily high and low, F
 const TEMPS = [[58,40],[63,44],[71,50],[78,57],[89,67],[99,76],[105,82],[103,81],[94,72],[80,59],[66,46],[57,39]];
 const PAINT = {
-  yellow: { hex: '#e8b820', a: 0.50 },
+  yellow: { hex: '#f2a51c', a: 0.52 },
   blue:   { hex: '#2f5d9e', a: 0.75 },
   gray:   { hex: '#8d9196', a: 0.65 },
   white:  { hex: '#eeeeea', a: 0.30 }
@@ -311,7 +322,7 @@ function readState() {
     nL: Math.round(clamp(g('nL'), 0, 6)), nR: Math.round(clamp(g('nR'), 0, 6)), rows: Math.round(clamp(g('rows'), 4, 20)),
     modW: clamp(g('modW'), 18, 60), modH: clamp(g('modH'), 48, 108), modD: clamp(g('modD'), 12, 40),
     color: $('color').value, absorb: clamp(g('absorb'), 0.05, 0.98),
-    consoleType: $('consoleType').value,
+    consoleType: $('consoleType').value, doorLayout: $('doorLayout').value, scrCol: $('scrCol').value,
     wScreen: Math.max(0, g('wScreen')), wBoards: Math.max(0, g('wBoards')), wRouter: Math.max(0, g('wRouter')),
     wPower: Math.max(0, g('wPower')), wLow: Math.max(0, g('wLow')), vent: Math.max(0, g('vent')),
     scrW: g('scrW'), scrH: g('scrH'), scrY: g('scrY'),
@@ -330,9 +341,9 @@ function readState() {
   S.day = clamp(Math.round(S.day) || 1, 1, MDAYS[S.month]);
   S.hasScreen = S.consoleType === 'screen';
   S.lowH = S.modH - S.stripH;
-  S.scrW = clamp(S.scrW, 4, S.modW - 4);
+  S.scrW = clamp(S.scrW, 4, S.scrCol === 'center' ? S.modW - 4 : S.modW / 2 - 4);
   S.scrH = clamp(S.scrH, 3, S.lowH / 2);
-  S.scrY = clamp(S.scrY, S.scrH / 2 + 4, S.lowH - S.scrH / 2 - 4);
+  S.scrY = clamp(S.scrY, S.scrH / 2 + 14, S.lowH - S.scrH / 2 - 6);
   S.gearW = S.hasScreen ? S.wScreen + S.wBoards + S.wRouter + S.wPower : S.wLow;
   return S;
 }
@@ -517,7 +528,7 @@ viewEl.insertBefore(renderer.domElement, viewEl.firstChild);
 const scene = new THREE.Scene();
 scene.background = new THREE.Color('#eaf0f4');
 const camera = new THREE.PerspectiveCamera(42, 1, 0.1, 400);
-const hemi = new THREE.HemisphereLight(0xffffff, 0xd9c9a6, 0.95);
+const hemi = new THREE.HemisphereLight(0xffffff, 0xe6d8b8, 1.6);
 scene.add(hemi);
 const sunLight = new THREE.DirectionalLight(0xfff3d6, 2.4);
 sunLight.castShadow = true;
@@ -549,11 +560,15 @@ function textSprite(txt, color) {
 });
 
 // heat glow: adds the vertex color as light so heat tints read clearly on shaded faces
-const glow = { value: 0.45 };
+const glow = { value: 0.3 };       // sides, hat strip, roof
+const glowFront = { value: 0.3 };  // door fronts, which carry their own painted texture
+const frontMats = [];
 function heatMaterial(opts) {
-  const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.55, metalness: 0.12, vertexColors: true, color: '#ffffff' }, opts));
+  const m = new THREE.MeshStandardMaterial(Object.assign({ roughness: 0.55, metalness: 0.08, vertexColors: true, color: '#ffffff' }, opts));
+  if (opts.map) { m.emissiveMap = opts.map; m.emissive = new THREE.Color('#ffffff'); m.emissiveIntensity = 0; frontMats.push(m); }
+  const g = opts.map ? glowFront : glow;
   m.onBeforeCompile = sh => {
-    sh.uniforms.heatGlow = glow;
+    sh.uniforms.heatGlow = g;
     sh.fragmentShader = 'uniform float heatGlow;\n' + sh.fragmentShader.replace(
       '#include <emissivemap_fragment>',
       '#include <emissivemap_fragment>\n#ifdef USE_COLOR\n  totalEmissiveRadiance += vColor.rgb * heatGlow;\n#endif');
@@ -566,44 +581,121 @@ scene.add(bank);
 let parts = null;
 let bankHeightFt = 7, bankWidthFt = 9;
 
-function doorTexture(S, isConsole, colorHex) {
-  const cw = 256, ch = Math.round(256 * S.lowH / S.modW);
+// Door patterns for the field style layout, top to bottom, in relative heights:
+// small doors stacked up top, medium in the middle, tall ones near the ground.
+const PATTERNS = [
+  [1, 1, 1, 1, 1.3, 1.3, 1.8, 1.8],
+  [1, 1, 1, 1.3, 1.3, 1.3, 1.8, 2],
+  [1.3, 1, 1, 1, 1, 1.3, 1.8, 2.2],
+  [1, 1, 1, 1, 1, 1.3, 1.8, 1.8],
+  [1, 1, 1.3, 1.3, 1, 1.3, 1.8, 2],
+  [1, 1, 1, 1, 1.3, 1.8, 1.8, 1.8]
+];
+
+function shadeHex(hex, k) {
+  const c = new THREE.Color(hex);
+  return `rgb(${Math.round(c.r * 255 * k)},${Math.round(c.g * 255 * k)},${Math.round(c.b * 255 * k)})`;
+}
+
+function doorTexture(S, isConsole, colorHex, modIndex) {
+  const cw = 512, ch = Math.round(512 * S.lowH / S.modW);
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   const x = c.getContext('2d');
+  const pxIn = ch / S.lowH;
   x.fillStyle = colorHex; x.fillRect(0, 0, cw, ch);
-  const pxPerIn = ch / S.lowH;
-  const kick = 4 * pxPerIn, top = 1 * pxPerIn, m = 8;
-  const colW = (cw - m * 3) / 2;
-  const rows = Math.max(3, Math.round(S.rows * S.lowH / S.modH));
-  const rowH = (ch - kick - top - m) / rows;
-  let bandTop = -1, bandBot = -1;
-  if (isConsole && S.hasScreen) {
-    bandTop = (S.lowH - (S.scrY + S.scrH / 2 + 5)) * pxPerIn;
-    bandBot = (S.lowH - (S.scrY - S.scrH / 2 - 5)) * pxPerIn;
+  // soft sheen so the flat steel does not look like paper
+  const sheen = x.createLinearGradient(0, 0, cw, 0);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.05)'); sheen.addColorStop(0.5, 'rgba(255,255,255,0.12)'); sheen.addColorStop(1, 'rgba(0,0,0,0.05)');
+  x.fillStyle = sheen; x.fillRect(0, 0, cw, ch);
+  const seam = shadeHex(colorHex, 0.62);
+  const edge = Math.round(0.6 * pxIn);       // module frame
+  const kick = Math.round(2.5 * pxIn);       // base rail
+  const mid = cw / 2;
+  const top = edge, bot = ch - kick;
+  const colX = [[edge, mid - 2], [mid + 2, cw - edge]];
+
+  // where the console panel sits
+  let panel = null;
+  if (isConsole) {
+    const pTop = S.hasScreen ? S.scrY + S.scrH / 2 + 3 : 50;
+    const pBot = S.hasScreen ? S.scrY - S.scrH / 2 - 10 : 38;
+    const y0 = (S.lowH - pTop) * pxIn, y1 = (S.lowH - pBot) * pxIn;
+    const cols = S.scrCol === 'center' ? [0, 1] : S.scrCol === 'right' ? [1] : [0];
+    panel = { y0, y1, cols };
   }
-  if (isConsole && !S.hasScreen) {
-    bandTop = (S.lowH - 54) * pxPerIn; bandBot = (S.lowH - 44) * pxPerIn;
-  }
-  x.lineWidth = 4; x.strokeStyle = '#111111';
+
+  x.strokeStyle = seam;
+  x.lineWidth = 3;
+  const drawDoors = (x0, x1, y0, y1, pattern) => {
+    const sum = pattern.reduce((a, v) => a + v, 0);
+    let y = y0;
+    pattern.forEach(u => {
+      const h = (y1 - y0) * u / sum;
+      x.strokeRect(x0 + 2, y + 2, x1 - x0 - 4, h - 4);
+      // faint lock pin near the hinge side
+      x.fillStyle = shadeHex(colorHex, 0.7);
+      x.fillRect(x0 + 8, y + 10, 4, 4);
+      y += h;
+    });
+  };
+  const fillCount = (span, unit) => Math.max(1, Math.round(span / unit));
   for (let col = 0; col < 2; col++) {
-    for (let r = 0; r < rows; r++) {
-      const dx = m + col * (colW + m), dy = top + r * rowH + m / 2;
-      const dh = rowH - m / 2;
-      if (bandTop >= 0 && dy + dh > bandTop && dy < bandBot) continue;
-      x.strokeRect(dx, dy, colW, dh);
-      x.fillStyle = 'rgba(17,17,17,0.55)';
-      const hx = col === 0 ? dx + colW - 14 : dx + 8;
-      x.fillRect(hx, dy + dh / 2 - Math.min(14, dh / 4), 6, Math.min(28, dh / 2));
+    const [x0, x1] = colX[col];
+    const idx = (modIndex * 2 + col) % PATTERNS.length;
+    if (panel && panel.cols.includes(col)) {
+      const small = 0.07 * (bot - top);
+      drawDoors(x0, x1, top, panel.y0, new Array(fillCount(panel.y0 - top, small)).fill(1));
+      const below = bot - panel.y1;
+      const nb = fillCount(below, 0.12 * (bot - top));
+      drawDoors(x0, x1, panel.y1, bot, new Array(nb).fill(0).map((_, k) => 1 + k * 0.35));
+    } else if (S.doorLayout === 'even') {
+      drawDoors(x0, x1, top, bot, new Array(Math.max(3, Math.round(S.rows * S.lowH / S.modH))).fill(1));
+    } else {
+      drawDoors(x0, x1, top, bot, PATTERNS[idx]);
     }
   }
-  if (bandTop >= 0) {
-    x.fillStyle = '#dfe3e8';
-    x.fillRect(m, bandTop, cw - m * 2, bandBot - bandTop);
-    x.strokeRect(m, bandTop, cw - m * 2, bandBot - bandTop);
-    if (!S.hasScreen) { x.fillStyle = '#111111'; x.fillRect(cw / 2 - 30, (bandTop + bandBot) / 2 - 10, 60, 20); }
+
+  if (panel) {
+    panel.cols.forEach(col => {
+      const [x0, x1] = colX[col];
+      x.strokeStyle = seam; x.lineWidth = 3;
+      x.strokeRect(x0 + 2, panel.y0 + 2, x1 - x0 - 4, panel.y1 - panel.y0 - 4);
+    });
+    const pc = panel.cols;
+    const px0 = colX[pc[0]][0], px1 = colX[pc[pc.length - 1]][1];
+    const cx = (px0 + px1) / 2;
+    if (S.hasScreen) {
+      // dark bezel around the screen; the glass itself is a separate 3D piece
+      const sy = (S.lowH - S.scrY) * pxIn;
+      const bw = (S.scrW + 2.4) * pxIn, bh = (S.scrH + 2.4) * pxIn;
+      x.fillStyle = '#3a3d42';
+      x.fillRect(cx - bw / 2, sy - bh / 2, bw, bh);
+      // keypad and card reader under the screen
+      const ky = sy + bh / 2 + 1.2 * pxIn;
+      const kw = Math.min(px1 - px0 - 20, 7 * pxIn), kh = 4.2 * pxIn;
+      x.fillStyle = '#c9ccd1';
+      x.fillRect(cx - kw / 2, ky, kw, kh);
+      x.fillStyle = '#5b5f66';
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) {
+        x.fillRect(cx + kw / 2 - 2.9 * pxIn + k * 0.85 * pxIn, ky + 0.5 * pxIn + r * 0.9 * pxIn, 0.6 * pxIn, 0.6 * pxIn);
+      }
+      x.fillStyle = '#2b2d31';
+      x.fillRect(cx - kw / 2 + 0.6 * pxIn, ky + 1.4 * pxIn, 2.6 * pxIn, 0.5 * pxIn);
+      x.fillStyle = '#d23a2a';
+      x.fillRect(cx - kw / 2 + 0.6 * pxIn, ky + 2.6 * pxIn, 0.7 * pxIn, 0.7 * pxIn);
+    } else {
+      x.fillStyle = '#3a3d42';
+      x.fillRect(cx - 3 * pxIn, (panel.y0 + panel.y1) / 2 - 1.5 * pxIn, 6 * pxIn, 3 * pxIn);
+    }
   }
-  x.fillStyle = 'rgba(17,17,17,0.85)';
-  x.fillRect(0, ch - kick, cw, kick);
+
+  // module frame, center post, and base rail
+  x.fillStyle = shadeHex(colorHex, 0.75);
+  x.fillRect(mid - 2, 0, 4, bot);
+  x.strokeStyle = shadeHex(colorHex, 0.7); x.lineWidth = edge * 2;
+  x.strokeRect(0, 0, cw, ch);
+  x.fillStyle = shadeHex(colorHex, 0.72);
+  x.fillRect(0, bot, cw, kick);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
@@ -611,12 +703,15 @@ function doorTexture(S, isConsole, colorHex) {
 }
 
 function stripTexture(colorHex) {
-  const c = document.createElement('canvas'); c.width = 256; c.height = 48;
+  const c = document.createElement('canvas'); c.width = 512; c.height = 64;
   const x = c.getContext('2d');
-  x.fillStyle = colorHex; x.fillRect(0, 0, 256, 48);
-  x.strokeStyle = '#111111'; x.lineWidth = 4; x.strokeRect(4, 4, 248, 40);
-  x.fillStyle = 'rgba(17,17,17,0.6)';
-  for (let i = 0; i < 6; i++) x.fillRect(150 + i * 15, 16, 9, 16);
+  x.fillStyle = colorHex; x.fillRect(0, 0, 512, 64);
+  x.fillStyle = shadeHex(colorHex, 0.6);
+  x.fillRect(0, 58, 512, 6);
+  x.fillRect(0, 0, 4, 64); x.fillRect(508, 0, 4, 64);
+  // small module tag plate
+  x.fillStyle = '#f4f4f2'; x.fillRect(226, 18, 60, 22);
+  x.strokeStyle = shadeHex(colorHex, 0.5); x.lineWidth = 2; x.strokeRect(226, 18, 60, 22);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
@@ -639,6 +734,7 @@ function addColorAttr(geo) {
 
 function build(S) {
   disposeGroup(bank);
+  frontMats.length = 0;
   const W = S.modW / 12, H = S.modH / 12, D = S.modD / 12, hs = S.stripH / 12, Hl = H - hs;
   const n = S.nL + S.nR + 1;
   const Wt = n * W;
@@ -646,17 +742,16 @@ function build(S) {
   bankHeightFt = H; bankWidthFt = Wt;
   const paint = PAINT[S.color].hex;
   const side = heatMaterial({});
-  const frontBank = heatMaterial({ map: doorTexture(S, false, paint) });
-  const frontCon = heatMaterial({ map: doorTexture(S, true, paint) });
   const stripFront = heatMaterial({ map: stripTexture(paint) });
-  parts = { lows: [], strips: [], side, frontBank, frontCon, stripFront, screen: null, hat: null, W, Hl, hs, D, conX: -Wt / 2 + W * (S.nL + 0.5) };
+  parts = { lows: [], strips: [], side, stripFront, screen: null, hat: null, W, Hl, hs, D, conX: -Wt / 2 + W * (S.nL + 0.5) };
   for (let i = 0; i < n; i++) {
     const isCon = i === S.nL;
     const x = -Wt / 2 + W * (i + 0.5);
     // material order: +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
     const lowGeo = new THREE.BoxGeometry(W * 0.996, Hl, D, 8, 12, 1);
     addColorAttr(lowGeo);
-    const low = new THREE.Mesh(lowGeo, [side, side, side, side, isCon ? frontCon : frontBank, side]);
+    const front = heatMaterial({ map: doorTexture(S, isCon, paint, i) });
+    const low = new THREE.Mesh(lowGeo, [side, side, side, side, front, side]);
     low.position.set(x, base + Hl / 2, 0);
     low.castShadow = true; low.receiveShadow = true;
     low.userData = { isCon, i, outerL: i === 0, outerR: i === n - 1 };
@@ -675,10 +770,24 @@ function build(S) {
   if (S.hasScreen) {
     const scr = new THREE.Mesh(new THREE.PlaneGeometry(S.scrW / 12, S.scrH / 12),
       new THREE.MeshStandardMaterial({ color: '#1d2833', roughness: 0.12, metalness: 0.3 }));
-    scr.position.set(parts.conX, base + S.scrY / 12, D / 2 + 0.012);
+    const colOff = S.scrCol === 'left' ? -W / 4 : S.scrCol === 'right' ? W / 4 : 0;
+    scr.position.set(parts.conX + colOff, base + S.scrY / 12, D / 2 + 0.012);
     scr.receiveShadow = true;
     bank.add(scr); parts.screen = scr;
   }
+  // flared feet at both outer ends
+  const footShape = new THREE.Shape();
+  footShape.moveTo(0, 0); footShape.lineTo(0.42, 0); footShape.lineTo(0, 0.7); footShape.lineTo(0, 0);
+  const footGeo = new THREE.ExtrudeGeometry(footShape, { depth: D * 0.96, bevelEnabled: false });
+  const footMat = new THREE.MeshStandardMaterial({ color: paint, roughness: 0.5, metalness: 0.15 });
+  [[1, Wt / 2], [-1, -Wt / 2]].forEach(([dir, xEdge]) => {
+    const foot = new THREE.Mesh(footGeo, footMat);
+    foot.scale.x = dir;
+    foot.position.set(xEdge, base, -D * 0.48);
+    foot.castShadow = true;
+    bank.add(foot);
+  });
+
   // back louvers on the console
   const louverMat = new THREE.MeshStandardMaterial({ color: '#2a2a2a', roughness: 0.8 });
   [Hl * 0.85, Hl * 0.2].forEach(yc => {
@@ -691,14 +800,25 @@ function build(S) {
   });
   if (S.hat) {
     const o = S.hatOver / 12;
-    const hat = new THREE.Mesh(new THREE.BoxGeometry(Wt + 2 * o, 0.33, D + 2 * o),
-      new THREE.MeshStandardMaterial({ color: paint, roughness: 0.5, metalness: 0.15 }));
-    hat.position.set(0, base + H + 0.165, 0);
+    const hatH = 0.2;
+    const hat = new THREE.Mesh(new THREE.BoxGeometry(Wt + 2 * o, hatH, D + 2 * o),
+      new THREE.MeshStandardMaterial({ color: paint, roughness: 0.45, metalness: 0.15 }));
+    hat.position.set(0, base + H + hatH / 2, 0);
     hat.castShadow = true; hat.receiveShadow = true;
     bank.add(hat); parts.hat = hat;
-    const lamp = new THREE.Mesh(new THREE.PlaneGeometry(Wt * 0.7, 0.1), new THREE.MeshBasicMaterial({ color: '#fff7d6' }));
-    lamp.position.set(0, base + H + 0.06, D / 2 + o + 0.005);
-    bank.add(lamp);
+    const boltMat = new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.6 });
+    for (let i = 1; i < n; i++) {
+      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 10), boltMat);
+      bolt.position.set(-Wt / 2 + W * i, base + H + hatH + 0.06, -D * 0.2);
+      bolt.castShadow = true;
+      bank.add(bolt);
+    }
+    if (S.wLight > 0) {
+      const lamp = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.5, 0.05), new THREE.MeshBasicMaterial({ color: '#fff7d6' }));
+      lamp.rotation.x = Math.PI / 2;
+      lamp.position.set(parts.conX, base + H - 0.001, D / 2 + o * 0.5);
+      bank.add(lamp);
+    }
   }
   const wallMat = new THREE.MeshStandardMaterial({ color: '#d8d2c6', roughness: 0.95 });
   if (S.backWall || S.shade === 'indoor') {
@@ -787,7 +907,9 @@ function colorBank(S, r) {
   const P = parts;
   const nS = S.nL + S.nR;
   if (!S.heatView) {
-    glow.value = 0;
+    glow.value = 0.28;
+    glowFront.value = 0;
+    frontMats.forEach(m => { m.emissiveIntensity = 0.32; });
     const c = new THREE.Color(PAINT[S.color].hex);
     const pl = [c.r, c.g, c.b];
     P.lows.forEach(m => paintMesh(m, null, pl, true));
@@ -796,7 +918,9 @@ function colorBank(S, r) {
     if (P.screen) P.screen.material.color.set('#1d2833');
     return;
   }
-  glow.value = 0.45;
+  glow.value = 0.3;
+  glowFront.value = 0.3;
+  frontMats.forEach(m => { m.emissiveIntensity = 0; });
   setScale(S, r);
   const To = C2F(r.To);
   const conRise = C2F(r.Tc) - To, bayRise = C2F(r.Tb) - To;
@@ -946,8 +1070,8 @@ function updateMoment() {
   const dir = new THREE.Vector3(Math.cos(alt) * Math.sin(az), Math.sin(alt), -Math.cos(alt) * Math.cos(az));
   const indoor = S.shade === 'indoor';
   const up = alt > 0 && !indoor;
-  sunLight.intensity = up ? 2.4 : 0;
-  hemi.intensity = up ? 0.95 : (indoor ? 1.25 : 0.55);
+  sunLight.intensity = up ? 2.1 : 0;
+  hemi.intensity = up ? 1.6 : (indoor ? 1.9 : 0.9);
   sunLight.position.copy(dir.clone().multiplyScalar(50));
   sunLight.target.position.set(0, 0, 0);
   sunBall.visible = alt > 0;
