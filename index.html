@@ -1,10 +1,10 @@
 <!DOCTYPE html>
-<!-- parcelsun-kq v3 : parcel locker solar heat model -->
+<!-- parcelsun-kq v4 : parcel locker solar heat model -->
 <html lang="en">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>Parcelsun V3</title>
+<title>Parcelsun V4</title>
 <style>
   :root {
     --bg: #f4f1ea;
@@ -83,7 +83,7 @@
 <body>
 <header>
   <div class="brand">
-    <h1>PARCELSUN</h1><span class="badge">V3</span>
+    <h1>PARCELSUN</h1><span class="badge">V4</span>
   </div>
   <div class="sub">PARCEL LOCKER HEAT MODEL</div>
   <button id="infoBtn">Info</button>
@@ -255,7 +255,7 @@
     </div>
   </section>
 
-  <footer>parcelsun-kq v3</footer>
+  <footer>parcelsun-kq v4</footer>
 </main>
 
 <div id="infoModal">
@@ -597,121 +597,148 @@ function shadeHex(hex, k) {
   return `rgb(${Math.round(c.r * 255 * k)},${Math.round(c.g * 255 * k)},${Math.round(c.b * 255 * k)})`;
 }
 
+// Shared seam layout. Every column gap is the same width, and each module carries
+// half of that gap at each outer edge, so two modules side by side show one full gap.
+const SEAM_IN = 0.45;
+function seamLayout(cw, pxIn) {
+  const g = SEAM_IN * pxIn;
+  const mid = cw / 2;
+  return { g, mid, cols: [[g / 2, mid - g / 2], [mid + g / 2, cw - g / 2]] };
+}
+function lighten(hex, k) {
+  const c = new THREE.Color(hex);
+  const f = v => Math.round(Math.min(255, v * 255 + (255 - v * 255) * k));
+  return `rgb(${f(c.r)},${f(c.g)},${f(c.b)})`;
+}
+function drawSeamV(x, x0, w, h, colorHex) {
+  x.fillStyle = shadeHex(colorHex, 0.38); x.fillRect(x0, 0, w, h);
+  x.fillStyle = shadeHex(colorHex, 0.62); x.fillRect(x0, 0, Math.max(1, w * 0.25), h);
+}
+function drawSeamH(x, x0, x1, y, colorHex) {
+  x.fillStyle = shadeHex(colorHex, 0.42); x.fillRect(x0, y - 1.5, x1 - x0, 3);
+  x.fillStyle = lighten(colorHex, 0.35); x.fillRect(x0, y + 1.5, x1 - x0, 1.5);
+}
+
 function doorTexture(S, isConsole, colorHex, modIndex) {
   const cw = 512, ch = Math.round(512 * S.lowH / S.modW);
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   const x = c.getContext('2d');
-  const pxIn = ch / S.lowH;
+  const pxIn = cw / S.modW;
   x.fillStyle = colorHex; x.fillRect(0, 0, cw, ch);
-  // soft sheen so the flat steel does not look like paper
-  const sheen = x.createLinearGradient(0, 0, cw, 0);
-  sheen.addColorStop(0, 'rgba(255,255,255,0.05)'); sheen.addColorStop(0.5, 'rgba(255,255,255,0.12)'); sheen.addColorStop(1, 'rgba(0,0,0,0.05)');
+  const sheen = x.createLinearGradient(0, 0, 0, ch);
+  sheen.addColorStop(0, 'rgba(255,255,255,0.10)'); sheen.addColorStop(1, 'rgba(0,0,0,0.06)');
   x.fillStyle = sheen; x.fillRect(0, 0, cw, ch);
-  const seam = shadeHex(colorHex, 0.62);
-  const edge = Math.round(0.6 * pxIn);       // module frame
-  const kick = Math.round(2.5 * pxIn);       // base rail
-  const mid = cw / 2;
-  const top = edge, bot = ch - kick;
-  const colX = [[edge, mid - 2], [mid + 2, cw - edge]];
+  const L = seamLayout(cw, pxIn);
+  const kick = Math.round(2.5 * pxIn);
+  const top = 0, bot = ch - kick;
 
-  // where the console panel sits
+  // console panel: one door opening that holds the screen, scanner, and keypad
   let panel = null;
   if (isConsole) {
-    const pTop = S.hasScreen ? S.scrY + S.scrH / 2 + 3 : 50;
-    const pBot = S.hasScreen ? S.scrY - S.scrH / 2 - 10 : 38;
-    const y0 = (S.lowH - pTop) * pxIn, y1 = (S.lowH - pBot) * pxIn;
+    const pTop = S.hasScreen ? S.scrY + S.scrH / 2 + 4.5 : 50;
+    const pBot = S.hasScreen ? S.scrY - S.scrH / 2 - 8 : 38;
     const cols = S.scrCol === 'center' ? [0, 1] : S.scrCol === 'right' ? [1] : [0];
-    panel = { y0, y1, cols };
+    panel = { y0: (S.lowH - pTop) * pxIn, y1: (S.lowH - pBot) * pxIn, cols };
   }
 
-  x.strokeStyle = seam;
-  x.lineWidth = 3;
-  const drawDoors = (x0, x1, y0, y1, pattern) => {
+  const seamsFor = (y0, y1, pattern) => {
     const sum = pattern.reduce((a, v) => a + v, 0);
-    let y = y0;
-    pattern.forEach(u => {
-      const h = (y1 - y0) * u / sum;
-      x.strokeRect(x0 + 2, y + 2, x1 - x0 - 4, h - 4);
-      // faint lock pin near the hinge side
-      x.fillStyle = shadeHex(colorHex, 0.7);
-      x.fillRect(x0 + 8, y + 10, 4, 4);
-      y += h;
-    });
+    const ys = []; let y = y0;
+    pattern.forEach((u, k) => { y += (y1 - y0) * u / sum; if (k < pattern.length - 1) ys.push(y); });
+    return ys;
   };
-  const fillCount = (span, unit) => Math.max(1, Math.round(span / unit));
   for (let col = 0; col < 2; col++) {
-    const [x0, x1] = colX[col];
-    const idx = (modIndex * 2 + col) % PATTERNS.length;
+    const [x0, x1] = L.cols[col];
+    let ys = [];
     if (panel && panel.cols.includes(col)) {
-      const small = 0.07 * (bot - top);
-      drawDoors(x0, x1, top, panel.y0, new Array(fillCount(panel.y0 - top, small)).fill(1));
-      const below = bot - panel.y1;
-      const nb = fillCount(below, 0.12 * (bot - top));
-      drawDoors(x0, x1, panel.y1, bot, new Array(nb).fill(0).map((_, k) => 1 + k * 0.35));
+      const nAbove = Math.max(1, Math.round((panel.y0 - top) / (0.075 * (bot - top))));
+      ys = ys.concat(seamsFor(top, panel.y0, new Array(nAbove).fill(1)), [panel.y0, panel.y1]);
+      const nBelow = Math.max(1, Math.round((bot - panel.y1) / (0.13 * (bot - top))));
+      ys = ys.concat(seamsFor(panel.y1, bot, new Array(nBelow).fill(0).map((_, k) => 1 + k * 0.3)));
     } else if (S.doorLayout === 'even') {
-      drawDoors(x0, x1, top, bot, new Array(Math.max(3, Math.round(S.rows * S.lowH / S.modH))).fill(1));
+      ys = seamsFor(top, bot, new Array(Math.max(3, Math.round(S.rows * S.lowH / S.modH))).fill(1));
     } else {
-      drawDoors(x0, x1, top, bot, PATTERNS[idx]);
+      ys = seamsFor(top, bot, PATTERNS[(modIndex * 2 + col) % PATTERNS.length]);
+    }
+    ys.forEach(y => drawSeamH(x, x0, x1, y, colorHex));
+    // lock side marks: a small keyhole dot on each door, on the side away from the hinge
+    const edges = [top].concat(ys, [bot]);
+    for (let k = 0; k < edges.length - 1; k++) {
+      if (panel && panel.cols.includes(col) && Math.abs(edges[k] - panel.y0) < 1) continue;
+      const cy = (edges[k] + edges[k + 1]) / 2;
+      const kx = col === 0 ? x1 - 0.9 * pxIn : x0 + 0.9 * pxIn;
+      x.fillStyle = shadeHex(colorHex, 0.62);
+      x.beginPath(); x.arc(kx, cy, 0.22 * pxIn, 0, Math.PI * 2); x.fill();
     }
   }
 
   if (panel) {
-    panel.cols.forEach(col => {
-      const [x0, x1] = colX[col];
-      x.strokeStyle = seam; x.lineWidth = 3;
-      x.strokeRect(x0 + 2, panel.y0 + 2, x1 - x0 - 4, panel.y1 - panel.y0 - 4);
-    });
     const pc = panel.cols;
-    const px0 = colX[pc[0]][0], px1 = colX[pc[pc.length - 1]][1];
+    const px0 = L.cols[pc[0]][0], px1 = L.cols[pc[pc.length - 1]][1];
     const cx = (px0 + px1) / 2;
     if (S.hasScreen) {
-      // dark bezel around the screen; the glass itself is a separate 3D piece
       const sy = (S.lowH - S.scrY) * pxIn;
-      const bw = (S.scrW + 2.4) * pxIn, bh = (S.scrH + 2.4) * pxIn;
+      // small label plate above the screen
+      x.fillStyle = '#2b2d31';
+      x.fillRect(cx - 2.2 * pxIn, panel.y0 + 1.1 * pxIn, 4.4 * pxIn, 1.1 * pxIn);
+      x.fillStyle = '#f2f2f0';
+      x.fillRect(cx - 1.8 * pxIn, panel.y0 + 1.35 * pxIn, 3.6 * pxIn, 0.6 * pxIn);
+      // screen bezel; the glass is its own 3D piece
+      const bw = (S.scrW + 1.8) * pxIn, bh = (S.scrH + 1.8) * pxIn;
+      x.fillStyle = '#d9dbde';
+      x.fillRect(cx - bw / 2 - 0.4 * pxIn, sy - bh / 2 - 0.4 * pxIn, bw + 0.8 * pxIn, bh + 0.8 * pxIn);
       x.fillStyle = '#3a3d42';
       x.fillRect(cx - bw / 2, sy - bh / 2, bw, bh);
-      // keypad and card reader under the screen
-      const ky = sy + bh / 2 + 1.2 * pxIn;
-      const kw = Math.min(px1 - px0 - 20, 7 * pxIn), kh = 4.2 * pxIn;
-      x.fillStyle = '#c9ccd1';
-      x.fillRect(cx - kw / 2, ky, kw, kh);
-      x.fillStyle = '#5b5f66';
-      for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++) {
-        x.fillRect(cx + kw / 2 - 2.9 * pxIn + k * 0.85 * pxIn, ky + 0.5 * pxIn + r * 0.9 * pxIn, 0.6 * pxIn, 0.6 * pxIn);
-      }
+      // scanner window, status lights, and keypad under the screen
+      const ky = sy + bh / 2 + 1.4 * pxIn;
       x.fillStyle = '#2b2d31';
-      x.fillRect(cx - kw / 2 + 0.6 * pxIn, ky + 1.4 * pxIn, 2.6 * pxIn, 0.5 * pxIn);
+      x.fillRect(cx - 3.6 * pxIn, ky, 3.4 * pxIn, 1.4 * pxIn);
       x.fillStyle = '#d23a2a';
-      x.fillRect(cx - kw / 2 + 0.6 * pxIn, ky + 2.6 * pxIn, 0.7 * pxIn, 0.7 * pxIn);
+      x.fillRect(cx - 3.4 * pxIn, ky + 2 * pxIn, 0.7 * pxIn, 0.7 * pxIn);
+      x.fillStyle = '#3fae49';
+      x.fillRect(cx - 2.4 * pxIn, ky + 2 * pxIn, 0.7 * pxIn, 0.7 * pxIn);
+      x.fillStyle = '#c9ccd1';
+      x.fillRect(cx + 0.4 * pxIn, ky, 3.4 * pxIn, 3.4 * pxIn);
+      x.fillStyle = '#5b5f66';
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++)
+        x.fillRect(cx + 0.75 * pxIn + k * 1.05 * pxIn, ky + 0.3 * pxIn + r * 0.78 * pxIn, 0.6 * pxIn, 0.5 * pxIn);
     } else {
       x.fillStyle = '#3a3d42';
       x.fillRect(cx - 3 * pxIn, (panel.y0 + panel.y1) / 2 - 1.5 * pxIn, 6 * pxIn, 3 * pxIn);
     }
   }
 
-  // module frame, center post, and base rail
-  x.fillStyle = shadeHex(colorHex, 0.75);
-  x.fillRect(mid - 2, 0, 4, bot);
-  x.strokeStyle = shadeHex(colorHex, 0.7); x.lineWidth = edge * 2;
-  x.strokeRect(0, 0, cw, ch);
-  x.fillStyle = shadeHex(colorHex, 0.72);
+  // column gaps: full gap in the middle, half gap at each module edge
+  drawSeamV(x, L.mid - L.g / 2, L.g, bot, colorHex);
+  drawSeamV(x, 0, L.g / 2, bot, colorHex);
+  drawSeamV(x, cw - L.g / 2, L.g / 2, bot, colorHex);
+  // base kick rail with a shadow line above it
+  x.fillStyle = shadeHex(colorHex, 0.78);
   x.fillRect(0, bot, cw, kick);
+  x.fillStyle = shadeHex(colorHex, 0.45);
+  x.fillRect(0, bot, cw, 3);
   const t = new THREE.CanvasTexture(c);
   t.colorSpace = THREE.SRGBColorSpace;
   t.anisotropy = 4;
   return t;
 }
 
-function stripTexture(colorHex) {
-  const c = document.createElement('canvas'); c.width = 512; c.height = 64;
+function stripTexture(S, colorHex, isConsole) {
+  const cw = 512, ch = Math.max(32, Math.round(512 * S.stripH / S.modW));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   const x = c.getContext('2d');
-  x.fillStyle = colorHex; x.fillRect(0, 0, 512, 64);
-  x.fillStyle = shadeHex(colorHex, 0.6);
-  x.fillRect(0, 58, 512, 6);
-  x.fillRect(0, 0, 4, 64); x.fillRect(508, 0, 4, 64);
-  // small module tag plate
-  x.fillStyle = '#f4f4f2'; x.fillRect(226, 18, 60, 22);
-  x.strokeStyle = shadeHex(colorHex, 0.5); x.lineWidth = 2; x.strokeRect(226, 18, 60, 22);
+  const pxIn = cw / S.modW;
+  x.fillStyle = colorHex; x.fillRect(0, 0, cw, ch);
+  x.fillStyle = 'rgba(255,255,255,0.10)'; x.fillRect(0, 0, cw, ch);
+  const L = seamLayout(cw, pxIn);
+  drawSeamV(x, L.mid - L.g / 2, L.g, ch, colorHex);
+  drawSeamV(x, 0, L.g / 2, ch, colorHex);
+  drawSeamV(x, cw - L.g / 2, L.g / 2, ch, colorHex);
+  drawSeamH(x, 0, cw, ch - 2, colorHex);
+  // small service tag plate on the left column of every module
+  const tx = L.cols[0][0] + 1.5 * pxIn;
+  x.fillStyle = '#f4f4f2'; x.fillRect(tx, ch * 0.3, 3 * pxIn, ch * 0.32);
+  x.strokeStyle = shadeHex(colorHex, 0.5); x.lineWidth = 2; x.strokeRect(tx, ch * 0.3, 3 * pxIn, ch * 0.32);
   const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
   return t;
 }
@@ -742,13 +769,12 @@ function build(S) {
   bankHeightFt = H; bankWidthFt = Wt;
   const paint = PAINT[S.color].hex;
   const side = heatMaterial({});
-  const stripFront = heatMaterial({ map: stripTexture(paint) });
-  parts = { lows: [], strips: [], side, stripFront, screen: null, hat: null, W, Hl, hs, D, conX: -Wt / 2 + W * (S.nL + 0.5) };
+  parts = { lows: [], strips: [], side, screen: null, hat: null, W, Hl, hs, D, conX: -Wt / 2 + W * (S.nL + 0.5) };
   for (let i = 0; i < n; i++) {
     const isCon = i === S.nL;
     const x = -Wt / 2 + W * (i + 0.5);
     // material order: +X right, -X left, +Y top, -Y bottom, +Z front, -Z back
-    const lowGeo = new THREE.BoxGeometry(W * 0.996, Hl, D, 8, 12, 1);
+    const lowGeo = new THREE.BoxGeometry(W, Hl, D, 8, 12, 1);
     addColorAttr(lowGeo);
     const front = heatMaterial({ map: doorTexture(S, isCon, paint, i) });
     const low = new THREE.Mesh(lowGeo, [side, side, side, side, front, side]);
@@ -756,7 +782,8 @@ function build(S) {
     low.castShadow = true; low.receiveShadow = true;
     low.userData = { isCon, i, outerL: i === 0, outerR: i === n - 1 };
     bank.add(low); parts.lows.push(low);
-    const stripGeo = new THREE.BoxGeometry(W * 0.996, hs * 0.98, D, 8, 1, 1);
+    const stripGeo = new THREE.BoxGeometry(W, hs, D, 8, 1, 1);
+    const stripFront = heatMaterial({ map: stripTexture(S, paint, isCon) });
     addColorAttr(stripGeo);
     const strip = new THREE.Mesh(stripGeo, [side, side, side, side, stripFront, side]);
     strip.position.set(x, base + Hl + hs / 2, 0);
@@ -777,27 +804,40 @@ function build(S) {
   }
   // flared feet at both outer ends
   const footShape = new THREE.Shape();
-  footShape.moveTo(0, 0); footShape.lineTo(0.42, 0); footShape.lineTo(0, 0.7); footShape.lineTo(0, 0);
-  const footGeo = new THREE.ExtrudeGeometry(footShape, { depth: D * 0.96, bevelEnabled: false });
+  footShape.moveTo(0, 0); footShape.lineTo(0.2, 0); footShape.lineTo(0, 0.38); footShape.lineTo(0, 0);
+  const footGeo = new THREE.ExtrudeGeometry(footShape, { depth: 0.12, bevelEnabled: false });
   const footMat = new THREE.MeshStandardMaterial({ color: paint, roughness: 0.5, metalness: 0.15 });
   [[1, Wt / 2], [-1, -Wt / 2]].forEach(([dir, xEdge]) => {
-    const foot = new THREE.Mesh(footGeo, footMat);
-    foot.scale.x = dir;
-    foot.position.set(xEdge, base, -D * 0.48);
-    foot.castShadow = true;
-    bank.add(foot);
+    [D / 2 - 0.14, -D / 2 + 0.02].forEach(z => {
+      const foot = new THREE.Mesh(footGeo, footMat);
+      foot.scale.x = dir;
+      foot.position.set(xEdge, base, z);
+      foot.castShadow = true;
+      bank.add(foot);
+    });
   });
 
-  // back louvers on the console
+  // back louvers: only behind the IT cabinet, lined up with the screen panel
   const louverMat = new THREE.MeshStandardMaterial({ color: '#2a2a2a', roughness: 0.8 });
-  [Hl * 0.85, Hl * 0.2].forEach(yc => {
-    for (let j = 0; j < 5; j++) {
-      const sl = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.5, 0.06), louverMat);
-      sl.rotation.y = Math.PI;
-      sl.position.set(parts.conX, base + yc + (j - 2) * 0.16, -D / 2 - 0.012);
-      bank.add(sl);
-    }
-  });
+  const colOffL = S.scrCol === 'left' ? -W / 4 : S.scrCol === 'right' ? W / 4 : 0;
+  const lw = S.scrCol === 'center' ? W * 0.6 : W * 0.32;
+  const cabTop = (S.hasScreen ? S.scrY + S.scrH / 2 + 4.5 : 50) / 12;
+  const cabBot = (S.hasScreen ? S.scrY - S.scrH / 2 - 8 : 38) / 12;
+  const nSl = Math.max(3, Math.floor((cabTop - cabBot - 0.25) / 0.14));
+  for (let j = 0; j < nSl; j++) {
+    const sl = new THREE.Mesh(new THREE.PlaneGeometry(lw, 0.05), louverMat);
+    sl.rotation.y = Math.PI;
+    sl.position.set(parts.conX + colOffL, base + cabBot + 0.18 + j * 0.14, -D / 2 - 0.012);
+    bank.add(sl);
+  }
+  // service seams on the back sheet at every module joint
+  const backSeamMat = new THREE.MeshStandardMaterial({ color: shadeHex(paint, 0.45), roughness: 0.8 });
+  for (let i = 1; i < n; i++) {
+    const sm = new THREE.Mesh(new THREE.PlaneGeometry(SEAM_IN / 12, H), backSeamMat);
+    sm.rotation.y = Math.PI;
+    sm.position.set(-Wt / 2 + W * i, base + H / 2, -D / 2 - 0.011);
+    bank.add(sm);
+  }
   if (S.hat) {
     const o = S.hatOver / 12;
     const hatH = 0.2;
@@ -807,12 +847,12 @@ function build(S) {
     hat.castShadow = true; hat.receiveShadow = true;
     bank.add(hat); parts.hat = hat;
     const boltMat = new THREE.MeshStandardMaterial({ color: '#222222', roughness: 0.6 });
-    for (let i = 1; i < n; i++) {
-      const bolt = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.12, 10), boltMat);
-      bolt.position.set(-Wt / 2 + W * i, base + H + hatH + 0.06, -D * 0.2);
-      bolt.castShadow = true;
-      bank.add(bolt);
-    }
+    [-1, 1].forEach(sx => {
+      const pod = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.16, 0.12), boltMat);
+      pod.position.set(parts.conX + sx * W * 0.3, base + H + hatH + 0.08, D * 0.15);
+      pod.castShadow = true;
+      bank.add(pod);
+    });
     if (S.wLight > 0) {
       const lamp = new THREE.Mesh(new THREE.PlaneGeometry(W * 0.5, 0.05), new THREE.MeshBasicMaterial({ color: '#fff7d6' }));
       lamp.rotation.x = Math.PI / 2;
