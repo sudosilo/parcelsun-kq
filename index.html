@@ -1511,7 +1511,11 @@ window.addEventListener('message', e => {
     const free = allDoors().filter(n => !OPEN.has(n));
     const n = free.length ? free[Math.floor(Math.random() * free.length)] : null;
     sendKiosk({ type: 'opened', n });
-    if (n) openDoor(n, true);
+    if (n) {
+      // bring the model on screen, then swing the door so it can be seen opening
+      $('view').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setTimeout(() => openDoor(n, true), 450);
+    }
   }
   if (d.type === 'ready') sendLayout();
   if (d.type === 'size' && d.h > 100) kioskEl.style.height = d.h + 'px';
