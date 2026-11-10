@@ -298,7 +298,7 @@
     <p>Picking where a locker goes and which way it faces costs almost nothing before install. Fixing heat damage after install costs a truck roll every time. This shows which placements will cook the screen and the boards and which ones stay workable.</p>
     <h3>How to read it</h3>
     <p>The 3D view shows the locker, the sun, and the shadows at the time on the slider. With Heat view on, every surface is tinted by how hot it is: pale blue is cool, yellow is warm, red is very hot. Heat builds toward the top of each section, spreads out from the screen console into the modules beside it, and shows on the back of the console where the gear sits. Tap Back to look at the back of the locker.</p>
-    <p>The Layout card sets the bank. Pick version 4 or version 5, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter is skipped. Type a door number to light it up red on the model.</p>
+    <p>The Layout card sets the bank. Pick version 4 or version 5, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter sits second from the left by default and is one wide column: its doors above the screen are numbered, then its doors below, and only the screen panel is skipped. Type a door number to light it up red on the model.</p>
     <p>The Locker screen card runs the kiosk software. Enter a 6 digit code or tap the scanner and a door swings open on the model with a package inside. Tap an open door on the model to close it, or tap any closed door to open it. Code 999999 opens technician mode, and its door repair flow opens and closes the matching door on the model.</p>
     <p>The chart shows the whole day. The dashed lines are your limits. Anything above them is a problem hour.</p>
     <h3>Okay, now the details</h3>
@@ -342,15 +342,17 @@ const PAINT = {
 };
 
 // Bank layout: modules in order left to right as you face the first front.
-// type: adder (two door columns), q (Q unit, three big doors), starter (screen cabinet, not numbered).
+// type: adder (two door columns), q (Q unit, three big doors), starter (one wide column: doors above and below the screen panel).
+// starter cols holds [doors above the panel, doors below the panel].
 // turn: corner before this module. out wraps around an outside corner, in turns into an inside corner.
-const LKEY = 'parcelsun-layout-v1';
+const LKEY = 'parcelsun-layout-v2';
+const STARTER_DOORS = [3, 2];
 function newAdder(ver) { const n = ver === 'v4' ? 10 : 12; return { type: 'adder', turn: 'none', cols: [n, n] }; }
 function defaultLayout() {
   const m = [];
-  for (let i = 0; i < 4; i++) m.push(newAdder('v5'));
-  m.push({ type: 'starter', turn: 'none', cols: [0, 0] });
-  for (let i = 0; i < 2; i++) m.push(newAdder('v5'));
+  m.push(newAdder('v5'));
+  m.push({ type: 'starter', turn: 'none', cols: STARTER_DOORS.slice() });
+  for (let i = 0; i < 5; i++) m.push(newAdder('v5'));
   return { ver: 'v5', mods: m };
 }
 let LAYOUT = null;
@@ -367,18 +369,19 @@ function fixLayout() {
     if (!['adder', 'q', 'starter'].includes(x.type)) x.type = 'adder';
     if (!['none', 'out', 'in'].includes(x.turn)) x.turn = 'none';
     if (!Array.isArray(x.cols) || x.cols.length !== 2) x.cols = [12, 12];
-    x.cols = x.cols.map(v => clamp(Math.round(+v || 1), 1, 30));
+    x.cols = x.type === 'starter' ? x.cols.map(v => clamp(Math.round(+v || 0), 0, 8)) : x.cols.map(v => clamp(Math.round(+v || 1), 1, 30));
   });
   m[0].turn = 'none';
   let k = m.findIndex(x => x.type === 'starter');
   m.forEach((x, i) => { if (x.type === 'starter' && i !== k) x.type = 'adder'; });
-  if (k < 0) { k = Math.floor(m.length / 2); m[k].type = 'starter'; }
+  if (k < 0) { k = Math.min(1, m.length - 1); m[k].type = 'starter'; m[k].cols = STARTER_DOORS.slice(); }
 }
-// Door numbers: top of the first column is 1, count down each column, then move to the next column. Starter skipped.
+// Door numbers: top of the first column is 1, count down each column, then move to the next column.
+// The starter is one column: its doors above the screen panel, then its doors below. The panel is skipped.
 function numberLayout() {
   let c = 1;
   const mods = LAYOUT.mods.map(m => {
-    if (m.type === 'starter') return null;
+    if (m.type === 'starter') { const n = m.cols[0] + m.cols[1]; if (!n) return null; const r = [{ first: c, n }]; c += n; return r; }
     const counts = m.type === 'q' ? [2, 1] : m.cols;
     return counts.map(n => { const r = { first: c, n }; c += n; return r; });
   });
@@ -697,11 +700,30 @@ function doorWeights(n) {
   return w;
 }
 
+// Screen panel on the starter, inches from the top of the lower section.
+function panelSpan(S) {
+  const pTop = S.hasScreen ? S.scrY + S.scrH / 2 + 4.5 : 50;
+  const pBot = S.hasScreen ? S.scrY - S.scrH / 2 - 8 : 38;
+  return { y0: S.lowH - pTop, y1: S.lowH - pBot };
+}
 // Door rectangles for one module in inches from its top left corner (lower section only).
 function doorRects(S, mod, nums) {
   const out = [];
-  if (mod.type === 'starter' || !nums) return out;
+  if (!nums) return out;
   const g = SEAM_IN, mid = S.modW / 2, bot = S.lowH - 2.5;
+  if (mod.type === 'starter') {
+    const P = panelSpan(S);
+    const x0 = g / 2, x1 = S.modW - g / 2;
+    let k = 0;
+    const run = (y0, y1, n, w) => {
+      const sum = w.reduce((a, v) => a + v, 0);
+      let y = y0;
+      w.forEach(u => { const yb = y + (y1 - y0) * u / sum; out.push({ x0, x1, y0: y, y1: yb, n: nums[0].first + k, col: 0, hingeLeft: true }); k++; y = yb; });
+    };
+    if (mod.cols[0]) run(0, P.y0, mod.cols[0], new Array(mod.cols[0]).fill(1));
+    if (mod.cols[1]) run(P.y1, bot, mod.cols[1], doorWeights(mod.cols[1]));
+    return out;
+  }
   const cols = [[g / 2, mid - g / 2], [mid + g / 2, S.modW - g / 2]];
   const counts = mod.type === 'q' ? [2, 1] : mod.cols;
   cols.forEach(([x0, x1], col) => {
@@ -781,12 +803,19 @@ function doorTexture(S, mod, colorHex, nums) {
 
   let panel = null;
   if (isConsole) {
-    // starter: one door above, the screen panel, one door below, across the full width
-    const pTop = S.hasScreen ? S.scrY + S.scrH / 2 + 4.5 : 50;
-    const pBot = S.hasScreen ? S.scrY - S.scrH / 2 - 8 : 38;
-    panel = { y0: (S.lowH - pTop) * pxIn, y1: (S.lowH - pBot) * pxIn, cols: [0, 1] };
+    // starter: one wide column, numbered doors above and below the screen panel
+    const P = panelSpan(S);
+    panel = { y0: P.y0 * pxIn, y1: P.y1 * pxIn, cols: [0, 1] };
     const x0 = L.g / 2, x1 = cw - L.g / 2;
     [panel.y0, panel.y1].forEach(y => drawSeamH(x, x0, x1, y, colorHex));
+    doorRects(S, mod, nums).forEach(r => {
+      const y0 = r.y0 * pxIn, y1 = r.y1 * pxIn;
+      drawSeamH(x, x0, x1, y0, colorHex); drawSeamH(x, x0, x1, y1, colorHex);
+      label(x0, x1, y0, y1, r.n);
+      if (S.open.has(r.n)) return;
+      x.fillStyle = shadeHex(colorHex, 0.5);
+      x.beginPath(); x.arc(x1 - 0.9 * pxIn, (y0 + y1) / 2, 0.22 * pxIn, 0, Math.PI * 2); x.fill();
+    });
   } else {
     const counts = mod.type === 'q' ? [2, 1] : mod.cols;
     for (let col = 0; col < 2; col++) {
@@ -1508,27 +1537,32 @@ function renderLayout() {
       '<div class="mod-cols"></div>';
     const [tSel, cSel] = row.querySelectorAll('select');
     tSel.addEventListener('change', () => {
-      if (tSel.value === 'starter') LAYOUT.mods.forEach(x => { if (x.type === 'starter') x.type = 'adder'; });
-      m.type = tSel.value; layoutChanged();
+      if (tSel.value === 'starter') LAYOUT.mods.forEach(x => { if (x.type === 'starter') Object.assign(x, newAdder(LAYOUT.ver), { turn: x.turn }); });
+      const was = m.type;
+      m.type = tSel.value;
+      if (m.type === 'starter') m.cols = STARTER_DOORS.slice();
+      else if (was === 'starter') m.cols = newAdder(LAYOUT.ver).cols;
+      layoutChanged();
     });
     if (cSel) cSel.addEventListener('change', () => { m.turn = cSel.value; layoutChanged(); });
     const cols = row.querySelector('.mod-cols');
-    if (m.type === 'adder') {
-      ['Left col', 'Right col'].forEach((lab, c) => {
+    if (m.type === 'adder' || m.type === 'starter') {
+      (m.type === 'starter' ? ['Above screen', 'Below screen'] : ['Left col', 'Right col']).forEach((lab, c) => {
         const sp = document.createElement('span'); sp.textContent = lab; cols.appendChild(sp);
-        const inp = document.createElement('input'); inp.type = 'number'; inp.min = 1; inp.max = 30; inp.value = m.cols[c];
+        const inp = document.createElement('input'); inp.type = 'number'; inp.min = m.type === 'starter' ? 0 : 1; inp.max = m.type === 'starter' ? 8 : 30; inp.value = m.cols[c];
         inp.addEventListener('change', () => { m.cols[c] = inp.value; layoutChanged(); });
         cols.appendChild(inp);
       });
     } else {
       const sp = document.createElement('span');
-      sp.textContent = m.type === 'q' ? '3 doors' : 'Not numbered';
+      sp.textContent = '3 doors';
       cols.appendChild(sp);
     }
     if (nums.mods[i]) {
       const sp = document.createElement('span');
       const r = nums.mods[i];
-      sp.textContent = `Doors ${r[0].first} to ${r[1].first + r[1].n - 1}`;
+      const last = r[r.length - 1];
+      sp.textContent = `Doors ${r[0].first} to ${last.first + last.n - 1}`;
       cols.appendChild(sp);
     }
     if (LAYOUT.mods.length > 1) {
@@ -1542,7 +1576,8 @@ function renderLayout() {
   let rg = '';
   LAYOUT.mods.forEach((m, i) => {
     const r = nums.mods[i];
-    if (!r) { rg += `<div>M${i + 1} starter: skipped</div>`; return; }
+    if (!r) { rg += `<div>M${i + 1} ${TYPE_NAMES[m.type]}: no doors</div>`; return; }
+    if (m.type === 'starter') { rg += `<div>M${i + 1} Starter: doors ${r[0].first} to ${r[0].first + r[0].n - 1}, screen panel skipped</div>`; return; }
     r.forEach((c, k) => { rg += `<div>M${i + 1} ${TYPE_NAMES[m.type]}, ${k ? 'right' : 'left'} column: doors ${c.first} to ${c.first + c.n - 1}</div>`; });
   });
   $('dnRanges').innerHTML = rg;
@@ -1557,7 +1592,10 @@ function refind(rebuild) {
       r.forEach((c, k) => {
         if (v >= c.first && v < c.first + c.n) {
           FIND = v;
-          out.textContent = `M${i + 1} ${TYPE_NAMES[LAYOUT.mods[i].type]}, ${k ? 'right' : 'left'} column, ${v - c.first + 1} from top`;
+          const st = LAYOUT.mods[i].type === 'starter';
+          const pos = v - c.first + 1, above = LAYOUT.mods[i].cols[0];
+          out.textContent = st ? `M${i + 1} Starter, ${pos <= above ? `${pos} from top, above the screen` : `${pos - above} below the screen`}`
+            : `M${i + 1} ${TYPE_NAMES[LAYOUT.mods[i].type]}, ${k ? 'right' : 'left'} column, ${pos} from top`;
         }
       });
     });
