@@ -88,7 +88,20 @@
   .mod-row .mod-cols input { width: 58px; }
   .mod-row.starter { background: #eef3f8; }
   .dn-edit { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 8px 0; }
-  #openList { font-weight: 700; text-align: center; }
+  #openList, #openList2 { font-weight: 700; text-align: center; }
+  .phone { width: 260px; max-width: 100%; margin: 0 auto; padding: 14px 10px; border-radius: 32px; background: #e4e7eb; border: 2px solid var(--line); }
+  .phone-screen { background: #ffffff; border-radius: 20px; padding: 14px; min-height: 360px; border: 1px solid #c9ced5; }
+  .ph-top { display: flex; justify-content: space-between; font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 18px; }
+  #phBt.on { color: #1f6fd1; }
+  .ph-big { font-size: 18px; font-weight: 800; margin: 0 0 8px; text-align: center; }
+  .ph-sub { font-size: 12px; color: var(--muted); text-align: center; margin: 6px 0 14px; min-height: 1em; }
+  .ph-btn { display: block; width: 100%; padding: 12px; border-radius: 12px; background: #1f6fd1; color: #ffffff; border: 0; font-weight: 800; font-size: 15px; }
+  .ph-btn:disabled { opacity: 0.6; }
+  .ph-boxes { display: flex; gap: 6px; justify-content: center; margin: 10px 0 14px; }
+  .ph-boxes div { width: 30px; height: 38px; border: 2px solid #c9ced5; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800; }
+  .ph-boxes div.full { border-color: #1f6fd1; }
+  .ph-pad { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .ph-pad button { padding: 10px 0; font-size: 18px; font-weight: 700; border-radius: 10px; background: #f1f3f6; border: 1px solid #d5d9df; color: var(--ink); }
   .dn-ranges div { padding: 4px 0; border-bottom: 1px solid var(--soft); font-size: 12px; }
 </style>
 </head>
@@ -119,13 +132,37 @@
     <div class="dn-bar"><span id="openList"></span><button id="closeAll">Close all doors</button></div>
   </section>
 
+  <section class="card" id="phoneCard" hidden>
+    <h2>Phone pickup</h2>
+    <div class="phone">
+      <div class="phone-screen">
+        <div class="ph-top"><span>Locker app</span><span id="phBt">Bluetooth off</span></div>
+        <div id="phStep1">
+          <p class="ph-big">Stand at the locker</p>
+          <p class="ph-sub">Version 4 and 5 lockers have no screen. Your phone connects over Bluetooth to open the door.</p>
+          <button class="ph-btn" id="phConnect">Connect with Bluetooth</button>
+        </div>
+        <div id="phStep2" hidden>
+          <p class="ph-big">Enter your pickup code</p>
+          <div class="ph-boxes" id="phBoxes"></div>
+          <div class="ph-pad" id="phPad"></div>
+          <p class="ph-sub" id="phMsg"></p>
+        </div>
+      </div>
+    </div>
+    <div class="sub" style="display:block;margin-top:6px">Connect, then enter any 6 digit code and a door opens on the model. Tap an open door on the model to close it.</div>
+    <div class="dn-bar"><span id="openList2"></span></div>
+  </section>
+
   <section class="card" id="layoutCard">
     <h2>Layout and door numbers</h2>
     <div class="grid">
       <label class="field"><span>Locker version</span>
         <select id="ver">
-          <option value="v5">Version 5</option>
-          <option value="v4">Version 4</option>
+          <option value="v2">Version 2, screen and keypad</option>
+          <option value="v3">Version 3, screen and keypad</option>
+          <option value="v4">Version 4, Bluetooth phone only</option>
+          <option value="v5">Version 5, Bluetooth phone only</option>
         </select></label>
       <label class="check"><input type="checkbox" id="showNums" checked> Numbers on doors</label>
     </div>
@@ -215,7 +252,7 @@
       <label class="field full"><span>Console type</span>
         <select id="consoleType" data-build>
           <option value="screen">Screen console</option>
-          <option value="lowpower">Low power, no screen</option>
+          <option value="lowpower">Bluetooth, no screen</option>
         </select></label>
       <label class="field"><span>Screen and backlight (W)</span><input type="number" id="wScreen" min="0" max="400" value="45"></label>
       <label class="field"><span>Computer and boards (W)</span><input type="number" id="wBoards" min="0" max="400" value="35"></label>
@@ -298,7 +335,7 @@
     <p>Picking where a locker goes and which way it faces costs almost nothing before install. Fixing heat damage after install costs a truck roll every time. This shows which placements will cook the screen and the boards and which ones stay workable.</p>
     <h3>How to read it</h3>
     <p>The 3D view shows the locker, the sun, and the shadows at the time on the slider. With Heat view on, every surface is tinted by how hot it is: pale blue is cool, yellow is warm, red is very hot. Heat builds toward the top of each section, spreads out from the screen console into the modules beside it, and shows on the back of the console where the gear sits. Tap Back to look at the back of the locker.</p>
-    <p>The Layout card sets the bank. Pick version 4 or version 5, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter sits second from the left by default and is one wide column: its doors above the screen are numbered, then its doors below, and only the screen panel is skipped. Type a door number to light it up red on the model.</p>
+    <p>The Layout card sets the bank. Versions 2 and 3 have the screen and keypad, and the Locker screen card runs that kiosk. Versions 4 and 5 have no screen, so the Phone pickup card connects over Bluetooth instead. Pick a version, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter sits second from the left by default and is one wide column: its doors above the screen are numbered, then its doors below, and only the screen panel is skipped. Type a door number to light it up red on the model.</p>
     <p>The Locker screen card runs the kiosk software. Enter a 6 digit code or tap the scanner and a door swings open on the model with a package inside. Tap an open door on the model to close it, or tap any closed door to open it. Code 999999 opens technician mode, and its door repair flow opens and closes the matching door on the model.</p>
     <p>The chart shows the whole day. The dashed lines are your limits. Anything above them is a problem hour.</p>
     <h3>Okay, now the details</h3>
@@ -347,17 +384,19 @@ const PAINT = {
 // turn: corner before this module. out wraps around an outside corner, in turns into an inside corner.
 const LKEY = 'parcelsun-layout-v2';
 const STARTER_DOORS = [3, 2];
-function newAdder(ver) { const n = ver === 'v4' ? 10 : 12; return { type: 'adder', turn: 'none', cols: [n, n] }; }
+const isBT = ver => ver === 'v4' || ver === 'v5';
+function newAdder(ver) { const n = ver === 'v2' ? 10 : 12; return { type: 'adder', turn: 'none', cols: [n, n] }; }
 function defaultLayout() {
   const m = [];
-  m.push(newAdder('v5'));
+  m.push(newAdder('v3'));
   m.push({ type: 'starter', turn: 'none', cols: STARTER_DOORS.slice() });
-  for (let i = 0; i < 5; i++) m.push(newAdder('v5'));
-  return { ver: 'v5', mods: m };
+  for (let i = 0; i < 5; i++) m.push(newAdder('v3'));
+  return { ver: 'v3', mods: m };
 }
 let LAYOUT = null;
 try { LAYOUT = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
 if (!LAYOUT || !Array.isArray(LAYOUT.mods) || !LAYOUT.mods.length) LAYOUT = defaultLayout();
+if (!['v2', 'v3', 'v4', 'v5'].includes(LAYOUT.ver)) LAYOUT.ver = 'v3';
 let FIND = 0;
 // open doors: number -> { pkg: package inside, ang: current swing, target: swing target }
 const OPEN = new Map();
@@ -846,11 +885,11 @@ function doorTexture(S, mod, colorHex, nums) {
       x.fillStyle = '#f2f2f0';
       x.fillRect(cx - 1.8 * pxIn, panel.y0 + 1.35 * pxIn, 3.6 * pxIn, 0.6 * pxIn);
       const bw = (S.scrW + 1.8) * pxIn, bh = (S.scrH + 1.8) * pxIn;
-      x.fillStyle = S.ver === 'v4' ? '#3a3d42' : '#d9dbde';
+      x.fillStyle = S.ver === 'v2' ? '#3a3d42' : '#d9dbde';
       x.fillRect(cx - bw / 2 - 0.4 * pxIn, sy - bh / 2 - 0.4 * pxIn, bw + 0.8 * pxIn, bh + 0.8 * pxIn);
       x.fillStyle = '#3a3d42';
       x.fillRect(cx - bw / 2, sy - bh / 2, bw, bh);
-      if (S.ver === 'v4') {
+      if (S.ver === 'v2') {
         // speaker grilles above the screen
         x.fillStyle = shadeHex(colorHex, 0.5);
         [-1, 1].forEach(sd => {
@@ -872,8 +911,21 @@ function doorTexture(S, mod, colorHex, nums) {
       for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++)
         x.fillRect(cx + 0.75 * pxIn + k * 1.05 * pxIn, ky + 0.3 * pxIn + r * 0.78 * pxIn, 0.6 * pxIn, 0.5 * pxIn);
     } else {
-      x.fillStyle = '#3a3d42';
-      x.fillRect(cx - 3 * pxIn, (panel.y0 + panel.y1) / 2 - 1.5 * pxIn, 6 * pxIn, 3 * pxIn);
+      // Bluetooth units: a small plate with the Bluetooth mark, no screen or keypad
+      const py = (panel.y0 + panel.y1) / 2, pw = 4.2 * pxIn, ph = 5.2 * pxIn;
+      x.fillStyle = '#e8ecf1'; x.fillRect(cx - pw / 2, py - ph / 2, pw, ph);
+      x.strokeStyle = '#9aa3ad'; x.lineWidth = 2; x.strokeRect(cx - pw / 2, py - ph / 2, pw, ph);
+      x.fillStyle = '#1f6fd1';
+      x.beginPath(); x.arc(cx, py - 0.4 * pxIn, 1.4 * pxIn, 0, Math.PI * 2); x.fill();
+      x.strokeStyle = '#ffffff'; x.lineWidth = Math.max(2, 0.22 * pxIn); x.lineJoin = 'round';
+      const u = 0.42 * pxIn, oy = py - 0.4 * pxIn;
+      x.beginPath();
+      x.moveTo(cx - u, oy - u); x.lineTo(cx + u, oy + u); x.lineTo(cx, oy + 2 * u); x.lineTo(cx, oy - 2 * u);
+      x.lineTo(cx + u, oy - u); x.lineTo(cx - u, oy + u);
+      x.stroke();
+      x.fillStyle = '#4b535c'; x.font = `700 ${Math.round(0.75 * pxIn)}px system-ui, sans-serif`;
+      x.textAlign = 'center'; x.textBaseline = 'middle';
+      x.fillText('Use the app', cx, py + 1.8 * pxIn);
     }
   }
 
@@ -966,7 +1018,7 @@ function build(S) {
   const backSeamMat = new THREE.MeshStandardMaterial({ color: shadeHex(paint, 0.45), roughness: 0.8 });
   const wallMat = new THREE.MeshStandardMaterial({ color: '#d8d2c6', roughness: 0.95 });
   const roofMat = new THREE.MeshStandardMaterial({ color: '#b9b3a6', roughness: 0.8, side: THREE.DoubleSide });
-  const v4 = S.ver === 'v4';
+  const v4 = S.ver === 'v2'; // tall canopy style
 
   mods.forEach((m, i) => {
     const p = place[i];
@@ -1289,9 +1341,15 @@ function resize() {
 window.addEventListener('resize', resize);
 
 /* ---------------- UI ---------------- */
-$('color').value = LAYOUT.ver === 'v4' ? 'yellow' : 'silver';
-$('absorb').value = PAINT[$('color').value].a.toFixed(2);
-$('hatOver').value = LAYOUT.ver === 'v4' ? 6 : 1;
+function versionDefaults() {
+  $('color').value = LAYOUT.ver === 'v2' ? 'yellow' : 'silver';
+  $('absorb').value = PAINT[$('color').value].a.toFixed(2);
+  $('hatOver').value = LAYOUT.ver === 'v2' ? 6 : 1;
+  $('consoleType').value = isBT(LAYOUT.ver) ? 'lowpower' : 'screen';
+  $('kioskCard').hidden = isBT(LAYOUT.ver);
+  $('phoneCard').hidden = !isBT(LAYOUT.ver);
+}
+versionDefaults();
 let S = readState();
 let REC = [];
 
@@ -1450,7 +1508,7 @@ function closeDoor(n) {
 }
 function drawOpenList() {
   const list = [...OPEN.entries()].filter(([, o]) => o.target > 0).map(([n]) => n).sort((a, b) => a - b);
-  $('openList').textContent = list.length ? `Open: ${list.join(', ')}` : 'All doors closed';
+  $('openList').textContent = $('openList2').textContent = list.length ? `Open: ${list.join(', ')}` : 'All doors closed';
   $('closeAll').hidden = !list.length;
 }
 $('closeAll').addEventListener('click', () => OPEN.forEach((o, n) => closeDoor(n)));
@@ -1522,6 +1580,50 @@ window.addEventListener('message', e => {
   if (d.type === 'techOpen') openDoor(doorAtColSlot(d.c, d.s), false);
   if (d.type === 'techClose') closeDoor(doorAtColSlot(d.c, d.s));
 });
+
+/* ---------------- Bluetooth phone pickup (versions 4 and 5) ---------------- */
+let phVal = '';
+['1', '2', '3', '4', '5', '6', '7', '8', '9', 'clear', '0', 'del'].forEach(k => {
+  const b = document.createElement('button');
+  b.textContent = k === 'del' ? 'Del' : k === 'clear' ? 'Clear' : k;
+  if (k.length > 1) b.style.fontSize = '13px';
+  b.addEventListener('click', () => {
+    if (k === 'del') phVal = phVal.slice(0, -1);
+    else if (k === 'clear') phVal = '';
+    else if (phVal.length < 6) phVal += k;
+    $('phMsg').textContent = '';
+    drawPhone();
+    if (phVal.length === 6) setTimeout(phoneOpen, 250);
+  });
+  $('phPad').appendChild(b);
+});
+for (let i = 0; i < 6; i++) $('phBoxes').appendChild(document.createElement('div'));
+function drawPhone() {
+  [...$('phBoxes').children].forEach((d, i) => { d.textContent = phVal[i] || ''; d.classList.toggle('full', !!phVal[i]); });
+}
+function phoneReset() {
+  phVal = ''; drawPhone();
+  $('phStep1').hidden = false; $('phStep2').hidden = true;
+  $('phConnect').disabled = false; $('phConnect').textContent = 'Connect with Bluetooth';
+  $('phBt').textContent = 'Bluetooth off'; $('phBt').classList.remove('on');
+}
+$('phConnect').addEventListener('click', () => {
+  $('phConnect').disabled = true; $('phConnect').textContent = 'Searching for locker';
+  $('phBt').textContent = 'Searching'; 
+  setTimeout(() => {
+    $('phBt').textContent = 'Connected'; $('phBt').classList.add('on');
+    $('phStep1').hidden = true; $('phStep2').hidden = false;
+  }, 1200);
+});
+function phoneOpen() {
+  const free = allDoors().filter(n => !OPEN.has(n));
+  const n = free.length ? free[Math.floor(Math.random() * free.length)] : null;
+  phVal = ''; drawPhone();
+  if (!n) { $('phMsg').textContent = 'No closed doors left'; return; }
+  $('phMsg').textContent = `Door ${n} is open`;
+  $('view').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  setTimeout(() => openDoor(n, true), 450);
+}
 
 /* ---------------- Layout editor ---------------- */
 const TYPE_NAMES = { adder: 'Adder', q: 'Q unit', starter: 'Starter' };
@@ -1611,9 +1713,8 @@ $('dnFind').addEventListener('input', () => refind(true));
 $('showNums').addEventListener('change', () => { S = readState(); build(S); updateMoment(); });
 $('ver').addEventListener('change', () => {
   LAYOUT.ver = $('ver').value;
-  $('color').value = LAYOUT.ver === 'v4' ? 'yellow' : 'silver';
-  $('absorb').value = PAINT[$('color').value].a.toFixed(2);
-  $('hatOver').value = LAYOUT.ver === 'v4' ? 6 : 1;
+  versionDefaults();
+  phoneReset();
   layoutChanged();
 });
 $('addAdderL').addEventListener('click', () => { LAYOUT.mods[0].turn = 'none'; LAYOUT.mods.unshift(newAdder(LAYOUT.ver)); layoutChanged(); });
