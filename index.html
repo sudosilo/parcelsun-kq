@@ -139,7 +139,7 @@
         <div class="ph-top"><span>Locker app</span><span id="phBt">Bluetooth off</span></div>
         <div id="phStep1">
           <p class="ph-big">Stand at the locker</p>
-          <p class="ph-sub">Version 4 and 5 lockers have no screen. Your phone connects over Bluetooth to open the door.</p>
+          <p class="ph-sub">This locker has no screen. Your phone connects over Bluetooth to open the door.</p>
           <button class="ph-btn" id="phConnect">Connect with Bluetooth</button>
         </div>
         <div id="phStep2" hidden>
@@ -335,7 +335,7 @@
     <p>Picking where a locker goes and which way it faces costs almost nothing before install. Fixing heat damage after install costs a truck roll every time. This shows which placements will cook the screen and the boards and which ones stay workable.</p>
     <h3>How to read it</h3>
     <p>The 3D view shows the locker, the sun, and the shadows at the time on the slider. With Heat view on, every surface is tinted by how hot it is: pale blue is cool, yellow is warm, red is very hot. Heat builds toward the top of each section, spreads out from the screen console into the modules beside it, and shows on the back of the console where the gear sits. Tap Back to look at the back of the locker.</p>
-    <p>The Layout card sets the bank. Versions 2 and 3 have the screen and keypad, and the Locker screen card runs that kiosk. Versions 4 and 5 have no screen, so the Phone pickup card connects over Bluetooth instead. Pick a version, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter sits second from the left by default and is one wide column: its doors above the screen are numbered, then its doors below, and only the screen panel is skipped. Type a door number to light it up red on the model.</p>
+    <p>The Layout card sets the bank. Versions 2 and 3 have the screen and keypad, and the Locker screen card runs that kiosk. Versions 4 and 5 have no screen: the starter is just another column of package doors, and the Phone pickup card connects over Bluetooth instead. Pick a version, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter sits second from the left by default and is one wide column: its doors above the screen are numbered, then its doors below, and only the screen panel is skipped. Type a door number to light it up red on the model.</p>
     <p>The Locker screen card runs the kiosk software. Enter a 6 digit code or tap the scanner and a door swings open on the model with a package inside. Tap an open door on the model to close it, or tap any closed door to open it. Code 999999 opens technician mode, and its door repair flow opens and closes the matching door on the model.</p>
     <p>The chart shows the whole day. The dashed lines are your limits. Anything above them is a problem hour.</p>
     <h3>Okay, now the details</h3>
@@ -420,7 +420,7 @@ function fixLayout() {
 function numberLayout() {
   let c = 1;
   const mods = LAYOUT.mods.map(m => {
-    if (m.type === 'starter') { const n = m.cols[0] + m.cols[1]; if (!n) return null; const r = [{ first: c, n }]; c += n; return r; }
+    if (m.type === 'starter') { const n = m.cols[0] + m.cols[1] + (isBT(LAYOUT.ver) ? 1 : 0); if (!n) return null; const r = [{ first: c, n }]; c += n; return r; }
     const counts = m.type === 'q' ? [2, 1] : m.cols;
     return counts.map(n => { const r = { first: c, n }; c += n; return r; });
   });
@@ -760,6 +760,8 @@ function doorRects(S, mod, nums) {
       w.forEach(u => { const yb = y + (y1 - y0) * u / sum; out.push({ x0, x1, y0: y, y1: yb, n: nums[0].first + k, col: 0, hingeLeft: true }); k++; y = yb; });
     };
     if (mod.cols[0]) run(0, P.y0, mod.cols[0], new Array(mod.cols[0]).fill(1));
+    // Bluetooth versions have no screen: the panel space is one more package door
+    if (isBT(S.ver)) run(P.y0, P.y1, 1, [1]);
     if (mod.cols[1]) run(P.y1, bot, mod.cols[1], doorWeights(mod.cols[1]));
     return out;
   }
@@ -844,9 +846,9 @@ function doorTexture(S, mod, colorHex, nums) {
   if (isConsole) {
     // starter: one wide column, numbered doors above and below the screen panel
     const P = panelSpan(S);
-    panel = { y0: P.y0 * pxIn, y1: P.y1 * pxIn, cols: [0, 1] };
+    if (!isBT(S.ver)) panel = { y0: P.y0 * pxIn, y1: P.y1 * pxIn, cols: [0, 1] };
     const x0 = L.g / 2, x1 = cw - L.g / 2;
-    [panel.y0, panel.y1].forEach(y => drawSeamH(x, x0, x1, y, colorHex));
+    if (panel) [panel.y0, panel.y1].forEach(y => drawSeamH(x, x0, x1, y, colorHex));
     doorRects(S, mod, nums).forEach(r => {
       const y0 = r.y0 * pxIn, y1 = r.y1 * pxIn;
       drawSeamH(x, x0, x1, y0, colorHex); drawSeamH(x, x0, x1, y1, colorHex);
@@ -911,21 +913,8 @@ function doorTexture(S, mod, colorHex, nums) {
       for (let r = 0; r < 4; r++) for (let k = 0; k < 3; k++)
         x.fillRect(cx + 0.75 * pxIn + k * 1.05 * pxIn, ky + 0.3 * pxIn + r * 0.78 * pxIn, 0.6 * pxIn, 0.5 * pxIn);
     } else {
-      // Bluetooth units: a small plate with the Bluetooth mark, no screen or keypad
-      const py = (panel.y0 + panel.y1) / 2, pw = 4.2 * pxIn, ph = 5.2 * pxIn;
-      x.fillStyle = '#e8ecf1'; x.fillRect(cx - pw / 2, py - ph / 2, pw, ph);
-      x.strokeStyle = '#9aa3ad'; x.lineWidth = 2; x.strokeRect(cx - pw / 2, py - ph / 2, pw, ph);
-      x.fillStyle = '#1f6fd1';
-      x.beginPath(); x.arc(cx, py - 0.4 * pxIn, 1.4 * pxIn, 0, Math.PI * 2); x.fill();
-      x.strokeStyle = '#ffffff'; x.lineWidth = Math.max(2, 0.22 * pxIn); x.lineJoin = 'round';
-      const u = 0.42 * pxIn, oy = py - 0.4 * pxIn;
-      x.beginPath();
-      x.moveTo(cx - u, oy - u); x.lineTo(cx + u, oy + u); x.lineTo(cx, oy + 2 * u); x.lineTo(cx, oy - 2 * u);
-      x.lineTo(cx + u, oy - u); x.lineTo(cx - u, oy + u);
-      x.stroke();
-      x.fillStyle = '#4b535c'; x.font = `700 ${Math.round(0.75 * pxIn)}px system-ui, sans-serif`;
-      x.textAlign = 'center'; x.textBaseline = 'middle';
-      x.fillText('Use the app', cx, py + 1.8 * pxIn);
+      x.fillStyle = '#3a3d42';
+      x.fillRect(cx - 3 * pxIn, (panel.y0 + panel.y1) / 2 - 1.5 * pxIn, 6 * pxIn, 3 * pxIn);
     }
   }
 
@@ -1110,7 +1099,7 @@ function build(S) {
       aw.castShadow = true; aw.receiveShadow = true;
       g.add(aw);
     }
-    if (isCon) {
+    if (isCon && !isBT(S.ver)) {
       if (S.hasScreen) {
         const scr = new THREE.Mesh(new THREE.PlaneGeometry(S.scrW / 12, S.scrH / 12),
           new THREE.MeshStandardMaterial({ color: '#1d2833', roughness: 0.12, metalness: 0.3 }));
@@ -1653,7 +1642,7 @@ function renderLayout() {
     if (cSel) cSel.addEventListener('change', () => { m.turn = cSel.value; layoutChanged(); });
     const cols = row.querySelector('.mod-cols');
     if (m.type === 'adder' || m.type === 'starter') {
-      (m.type === 'starter' ? ['Above screen', 'Below screen'] : ['Left col', 'Right col']).forEach((lab, c) => {
+      (m.type === 'starter' ? (isBT(LAYOUT.ver) ? ['Above middle door', 'Below middle door'] : ['Above screen', 'Below screen']) : ['Left col', 'Right col']).forEach((lab, c) => {
         const sp = document.createElement('span'); sp.textContent = lab; cols.appendChild(sp);
         const inp = document.createElement('input'); inp.type = 'number'; inp.min = m.type === 'starter' ? 0 : 1; inp.max = m.type === 'starter' ? 8 : 30; inp.value = m.cols[c];
         inp.addEventListener('change', () => { m.cols[c] = inp.value; layoutChanged(); });
@@ -1683,7 +1672,7 @@ function renderLayout() {
   LAYOUT.mods.forEach((m, i) => {
     const r = nums.mods[i];
     if (!r) { rg += `<div>M${i + 1} ${TYPE_NAMES[m.type]}: no doors</div>`; return; }
-    if (m.type === 'starter') { rg += `<div>M${i + 1} Starter: doors ${r[0].first} to ${r[0].first + r[0].n - 1}, screen panel skipped</div>`; return; }
+    if (m.type === 'starter') { rg += `<div>M${i + 1} Starter: doors ${r[0].first} to ${r[0].first + r[0].n - 1}${isBT(LAYOUT.ver) ? '' : ', screen panel skipped'}</div>`; return; }
     r.forEach((c, k) => { rg += `<div>M${i + 1} ${TYPE_NAMES[m.type]}, ${k ? 'right' : 'left'} column: doors ${c.first} to ${c.first + c.n - 1}</div>`; });
   });
   $('dnRanges').innerHTML = rg;
@@ -1700,7 +1689,7 @@ function refind(rebuild) {
           FIND = v;
           const st = LAYOUT.mods[i].type === 'starter';
           const pos = v - c.first + 1, above = LAYOUT.mods[i].cols[0];
-          out.textContent = st ? `M${i + 1} Starter, ${pos <= above ? `${pos} from top, above the screen` : `${pos - above} below the screen`}`
+          out.textContent = st && isBT(LAYOUT.ver) ? `M${i + 1} Starter, ${pos} from top` : st ? `M${i + 1} Starter, ${pos <= above ? `${pos} from top, above the screen` : `${pos - above} below the screen`}`
             : `M${i + 1} ${TYPE_NAMES[LAYOUT.mods[i].type]}, ${k ? 'right' : 'left'} column, ${pos} from top`;
         }
       });
