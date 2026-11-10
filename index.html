@@ -88,6 +88,7 @@
   .mod-row .mod-cols input { width: 58px; }
   .mod-row.starter { background: #eef3f8; }
   .dn-edit { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 8px 0; }
+  .wrap-up { display: inline-block; padding: 8px 12px; border: 2px solid var(--line); border-radius: 8px; font-weight: 700; background: #fff; cursor: pointer; }
   #openList, #openList2 { font-weight: 700; text-align: center; }
   .phone { width: 260px; max-width: 100%; margin: 0 auto; padding: 14px 10px; border-radius: 32px; background: #e4e7eb; border: 2px solid var(--line); }
   .phone-screen { background: #ffffff; border-radius: 20px; padding: 14px; min-height: 360px; border: 1px solid #c9ced5; }
@@ -152,6 +153,22 @@
     </div>
     <div class="sub" style="display:block;margin-top:6px">Connect, then enter any 6 digit code and a door opens on the model. Tap an open door on the model to close it.</div>
     <div class="dn-bar"><span id="openList2"></span></div>
+  </section>
+
+  <section class="card" id="wrapCard">
+    <h2>Wrap graphic</h2>
+    <div class="dn-bar">
+      <label class="wrap-up">Upload photo<input type="file" id="wrapFile" accept="image/*" hidden></label>
+      <select id="wrapFit"><option value="stretch">Stretch to the bank</option><option value="keep">Keep photo shape</option></select>
+      <button id="wrapClear" hidden>Remove wrap</button>
+    </div>
+    <canvas id="wrapPrev" width="800" height="200" style="width:100%;display:block;border:2px solid var(--line);border-radius:8px;background:#f4f2ee;touch-action:none;cursor:grab"></canvas>
+    <div class="sub" style="display:block;margin:6px 0" id="wrapHint">Upload a photo and it covers the whole front of the bank. Drag the picture above to slide it around.</div>
+    <div class="grid">
+      <label class="field"><span>Size (%)</span><input type="range" id="wrapScale" min="20" max="300" value="100"></label>
+      <label class="field"><span>Stretch wide (%)</span><input type="range" id="wrapWide" min="20" max="300" value="100"></label>
+    </div>
+    <div class="dn-bar"><button id="wrapCenter">Center</button></div>
   </section>
 
   <section class="card" id="layoutCard">
@@ -337,6 +354,7 @@
     <p>The 3D view shows the locker, the sun, and the shadows at the time on the slider. With Heat view on, every surface is tinted by how hot it is: pale blue is cool, yellow is warm, red is very hot. Heat builds toward the top of each section, spreads out from the screen console into the modules beside it, and shows on the back of the console where the gear sits. Tap Back to look at the back of the locker.</p>
     <p>The Layout card sets the bank. Versions 2 and 3 have the screen and keypad, and the Locker screen card runs that kiosk. Versions 4 and 5 have no screen: the starter is just another column of package doors, and the Phone pickup card connects over Bluetooth instead. Pick a version, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter sits second from the left by default and is one wide column: its doors above the screen are numbered, then its doors below, and only the screen panel is skipped. Type a door number to light it up red on the model.</p>
     <p>The Locker screen card runs the kiosk software. Enter a 6 digit code or tap the scanner and a door swings open on the model with a package inside. Tap an open door on the model to close it, or tap any closed door to open it. Code 999999 opens technician mode, and its door repair flow opens and closes the matching door on the model.</p>
+    <p>The Wrap graphic card puts one photo across the whole front of the bank, like a vinyl wrap. Stretch to the bank fills the full length and height. Keep photo shape holds its proportions. Size and Stretch wide make it bigger, longer or fatter, and dragging the preview slides it around.</p>
     <p>The chart shows the whole day. The dashed lines are your limits. Anything above them is a problem hour.</p>
     <h3>Okay, now the details</h3>
     <p>Sun position comes from the NOAA solar equations for the latitude and longitude you enter. Clear sky sunlight comes from the ASHRAE monthly clear sky model, split into direct beam, sky light, and light bounced off the ground.</p>
@@ -739,6 +757,21 @@ function doorWeights(n) {
   return w;
 }
 
+// Wrap graphic: one image laid across the whole front of the bank.
+// Bank front coordinates are inches: x along the run from the left end, y down from the top of the board strip.
+const WRAP = { img: null, fit: 'stretch', scale: 1, wide: 1, ox: 0, oy: 0, len: 1, ht: 1 };
+function wrapRect() {
+  let w, hgt;
+  if (WRAP.fit === 'keep' && WRAP.img) { hgt = WRAP.ht * WRAP.scale; w = hgt * WRAP.img.width / WRAP.img.height * WRAP.wide; }
+  else { w = WRAP.len * WRAP.scale * WRAP.wide; hgt = WRAP.ht * WRAP.scale; }
+  return { x: WRAP.len / 2 + WRAP.ox - w / 2, y: WRAP.ht / 2 + WRAP.oy - hgt / 2, w, h: hgt };
+}
+function drawWrap(x, pxIn, leftIn, topIn) {
+  if (!WRAP.img) return;
+  const r = wrapRect();
+  x.drawImage(WRAP.img, (r.x - leftIn) * pxIn, (r.y - topIn) * pxIn, r.w * pxIn, r.h * pxIn);
+}
+
 // Screen panel on the starter, inches from the top of the lower section.
 function panelSpan(S) {
   const pTop = S.hasScreen ? S.scrY + S.scrH / 2 + 4.5 : 50;
@@ -794,7 +827,7 @@ function panelTexture(S, colorHex, r, w, dh) {
   return t;
 }
 
-function doorTexture(S, mod, colorHex, nums) {
+function doorTexture(S, mod, colorHex, nums, leftIn) {
   const isConsole = mod.type === 'starter';
   const cw = 512, ch = Math.round(512 * S.lowH / S.modW);
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
@@ -804,6 +837,7 @@ function doorTexture(S, mod, colorHex, nums) {
   const sheen = x.createLinearGradient(0, 0, 0, ch);
   sheen.addColorStop(0, 'rgba(255,255,255,0.10)'); sheen.addColorStop(1, 'rgba(0,0,0,0.06)');
   x.fillStyle = sheen; x.fillRect(0, 0, cw, ch);
+  drawWrap(x, pxIn, leftIn, S.stripH);
   const L = seamLayout(cw, pxIn);
   const kick = Math.round(2.5 * pxIn);
   const top = 0, bot = ch - kick;
@@ -931,13 +965,14 @@ function doorTexture(S, mod, colorHex, nums) {
   return t;
 }
 
-function stripTexture(S, colorHex, isConsole) {
+function stripTexture(S, colorHex, isConsole, leftIn) {
   const cw = 512, ch = Math.max(32, Math.round(512 * S.stripH / S.modW));
   const c = document.createElement('canvas'); c.width = cw; c.height = ch;
   const x = c.getContext('2d');
   const pxIn = cw / S.modW;
   x.fillStyle = colorHex; x.fillRect(0, 0, cw, ch);
   x.fillStyle = 'rgba(255,255,255,0.10)'; x.fillRect(0, 0, cw, ch);
+  drawWrap(x, pxIn, leftIn, 0);
   const L = seamLayout(cw, pxIn);
   drawSeamV(x, L.mid - L.g / 2, L.g, ch, colorHex);
   drawSeamV(x, 0, L.g / 2, ch, colorHex);
@@ -997,6 +1032,8 @@ function build(S) {
   const bw = maxX - minX, bd = maxZ - minZ;
   bankHeightFt = H; bankWidthFt = Math.max(bw, bd);
   const thS = place[si].th;
+  WRAP.len = (place[n - 1].s + W / 2) * 12; WRAP.ht = S.lowH + S.stripH;
+  if (window.drawWrapPrev) window.drawWrapPrev();
   parts = { lows: [], strips: [], doors: [], side, screen: null, hatMat: null, W, Hl, hs, D, conS: place[si].s };
 
   const hatMat = new THREE.MeshStandardMaterial({ color: paint, roughness: 0.45, metalness: 0.15 });
@@ -1023,7 +1060,7 @@ function build(S) {
 
     const lowGeo = new THREE.BoxGeometry(W, Hl, D, 8, 12, 1);
     addColorAttr(lowGeo);
-    const front = heatMaterial({ map: doorTexture(S, m, paint, S.nums.mods[i]) });
+    const front = heatMaterial({ map: doorTexture(S, m, paint, S.nums.mods[i], (p.s - W / 2) * 12) });
     const low = new THREE.Mesh(lowGeo, [side, side, side, side, front, side]);
     low.position.set(0, base + Hl / 2, 0);
     low.castShadow = true; low.receiveShadow = true;
@@ -1048,7 +1085,7 @@ function build(S) {
       parts.doors.push({ pivot, n: r.n, sign: r.hingeLeft ? -1 : 1 });
     });
     const stripGeo = new THREE.BoxGeometry(W, hs, D, 8, 1, 1);
-    const stripFront = heatMaterial({ map: stripTexture(S, paint, isCon) });
+    const stripFront = heatMaterial({ map: stripTexture(S, paint, isCon, (p.s - W / 2) * 12) });
     addColorAttr(stripGeo);
     const strip = new THREE.Mesh(stripGeo, [side, side, side, side, stripFront, side]);
     strip.position.set(0, base + Hl + hs / 2, 0);
@@ -1613,6 +1650,94 @@ function phoneOpen() {
   $('view').scrollIntoView({ behavior: 'smooth', block: 'center' });
   setTimeout(() => openDoor(n, true), 450);
 }
+
+/* ---------------- Wrap graphic ---------------- */
+const WKEY = 'parcelsun-wrap-v1';
+let wrapPending = false;
+function wrapRebuild() {
+  if (wrapPending) return;
+  wrapPending = true;
+  requestAnimationFrame(() => { wrapPending = false; S = readState(); build(S); updateMoment(); });
+}
+function saveWrap(dataUrl) {
+  try {
+    const o = { fit: WRAP.fit, scale: WRAP.scale, wide: WRAP.wide, ox: WRAP.ox, oy: WRAP.oy };
+    if (dataUrl !== undefined) o.img = dataUrl; else { const old = JSON.parse(localStorage.getItem(WKEY) || '{}'); o.img = old.img || null; }
+    localStorage.setItem(WKEY, JSON.stringify(o));
+  } catch (e) {}
+}
+function setWrapImage(src, keepPlace) {
+  const im = new Image();
+  im.onload = () => {
+    // shrink big photos so the textures stay light
+    const k = Math.min(1, 2400 / im.width, 1200 / im.height);
+    const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+    c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+    WRAP.img = c;
+    if (!keepPlace) { WRAP.ox = 0; WRAP.oy = 0; }
+    $('wrapClear').hidden = false;
+    let url = null; try { url = c.toDataURL('image/jpeg', 0.85); } catch (e) {}
+    saveWrap(url);
+    wrapRebuild();
+  };
+  im.src = src;
+}
+$('wrapFile').addEventListener('change', e => {
+  const f = e.target.files && e.target.files[0];
+  if (!f) return;
+  const rd = new FileReader();
+  rd.onload = () => setWrapImage(rd.result, false);
+  rd.readAsDataURL(f);
+  e.target.value = '';
+});
+$('wrapFit').addEventListener('change', () => { WRAP.fit = $('wrapFit').value; saveWrap(); wrapRebuild(); });
+$('wrapScale').addEventListener('input', () => { WRAP.scale = $('wrapScale').value / 100; saveWrap(); wrapRebuild(); });
+$('wrapWide').addEventListener('input', () => { WRAP.wide = $('wrapWide').value / 100; saveWrap(); wrapRebuild(); });
+$('wrapCenter').addEventListener('click', () => { WRAP.ox = 0; WRAP.oy = 0; saveWrap(); wrapRebuild(); });
+$('wrapClear').addEventListener('click', () => { WRAP.img = null; $('wrapClear').hidden = true; saveWrap(null); wrapRebuild(); });
+// preview: the bank outline with the photo, drag to slide it
+const wp = $('wrapPrev'), wpx = wp.getContext('2d');
+function prevScale() { const pad = 16; return Math.min((wp.width - 2 * pad) / WRAP.len, (wp.height - 2 * pad) / WRAP.ht); }
+window.drawWrapPrev = function () {
+  const k = prevScale(), x0 = (wp.width - WRAP.len * k) / 2, y0 = (wp.height - WRAP.ht * k) / 2;
+  wpx.clearRect(0, 0, wp.width, wp.height);
+  wpx.fillStyle = '#d9dcdf'; wpx.fillRect(x0, y0, WRAP.len * k, WRAP.ht * k);
+  if (WRAP.img) {
+    const r = wrapRect();
+    wpx.save(); wpx.globalAlpha = 0.35;
+    wpx.drawImage(WRAP.img, x0 + r.x * k, y0 + r.y * k, r.w * k, r.h * k);
+    wpx.restore();
+    wpx.save(); wpx.beginPath(); wpx.rect(x0, y0, WRAP.len * k, WRAP.ht * k); wpx.clip();
+    wpx.drawImage(WRAP.img, x0 + r.x * k, y0 + r.y * k, r.w * k, r.h * k);
+    wpx.restore();
+  }
+  // module lines
+  wpx.strokeStyle = 'rgba(17,17,17,0.55)'; wpx.lineWidth = 1.5;
+  const W = S ? S.modW : 30;
+  for (let s = W; s < WRAP.len - 1; s += W) { wpx.beginPath(); wpx.moveTo(x0 + s * k, y0); wpx.lineTo(x0 + s * k, y0 + WRAP.ht * k); wpx.stroke(); }
+  wpx.strokeStyle = '#111111'; wpx.lineWidth = 3; wpx.strokeRect(x0, y0, WRAP.len * k, WRAP.ht * k);
+  if (!WRAP.img) { wpx.fillStyle = '#555'; wpx.font = '700 22px system-ui, sans-serif'; wpx.textAlign = 'center'; wpx.fillText('No wrap yet', wp.width / 2, wp.height / 2 + 8); }
+};
+let wDrag = null;
+wp.addEventListener('pointerdown', e => { if (!WRAP.img) return; wDrag = { x: e.clientX, y: e.clientY, ox: WRAP.ox, oy: WRAP.oy }; wp.setPointerCapture(e.pointerId); wp.style.cursor = 'grabbing'; });
+wp.addEventListener('pointermove', e => {
+  if (!wDrag) return;
+  const k = prevScale() * wp.getBoundingClientRect().width / wp.width;
+  WRAP.ox = wDrag.ox + (e.clientX - wDrag.x) / k;
+  WRAP.oy = wDrag.oy + (e.clientY - wDrag.y) / k;
+  window.drawWrapPrev(); wrapRebuild();
+});
+const wEnd = () => { if (wDrag) { wDrag = null; wp.style.cursor = 'grab'; saveWrap(); } };
+wp.addEventListener('pointerup', wEnd); wp.addEventListener('pointercancel', wEnd);
+try {
+  const o = JSON.parse(localStorage.getItem(WKEY) || 'null');
+  if (o) {
+    Object.assign(WRAP, { fit: o.fit || 'stretch', scale: +o.scale || 1, wide: +o.wide || 1, ox: +o.ox || 0, oy: +o.oy || 0 });
+    $('wrapFit').value = WRAP.fit; $('wrapScale').value = Math.round(WRAP.scale * 100); $('wrapWide').value = Math.round(WRAP.wide * 100);
+    if (o.img) setWrapImage(o.img, true);
+  }
+} catch (e) {}
+window.drawWrapPrev();
 
 /* ---------------- Layout editor ---------------- */
 const TYPE_NAMES = { adder: 'Adder', q: 'Q unit', starter: 'Starter' };
