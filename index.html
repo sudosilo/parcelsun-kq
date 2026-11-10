@@ -88,6 +88,7 @@
   .mod-row .mod-cols input { width: 58px; }
   .mod-row.starter { background: #eef3f8; }
   .dn-edit { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 8px 0; }
+  #openList { font-weight: 700; text-align: center; }
   .dn-ranges div { padding: 4px 0; border-bottom: 1px solid var(--soft); font-size: 12px; }
 </style>
 </head>
@@ -109,6 +110,13 @@
       <button id="frontCam">Front</button>
       <button id="backCam">Back</button>
     </div>
+  </section>
+
+  <section class="card" id="kioskCard">
+    <h2>Locker screen</h2>
+    <iframe id="kiosk" src="kiosk/index.html" title="Locker screen" style="width:100%;height:520px;border:0;display:block;border-radius:8px"></iframe>
+    <div class="sub" style="display:block;margin-top:6px">Enter any 6 digit code or tap the scanner and a door opens on the model. Tap an open door on the model to close it. Tap a closed door to open it. Code 999999 opens technician mode.</div>
+    <div class="dn-bar"><span id="openList"></span><button id="closeAll">Close all doors</button></div>
   </section>
 
   <section class="card" id="layoutCard">
@@ -291,6 +299,7 @@
     <h3>How to read it</h3>
     <p>The 3D view shows the locker, the sun, and the shadows at the time on the slider. With Heat view on, every surface is tinted by how hot it is: pale blue is cool, yellow is warm, red is very hot. Heat builds toward the top of each section, spreads out from the screen console into the modules beside it, and shows on the back of the console where the gear sits. Tap Back to look at the back of the locker.</p>
     <p>The Layout card sets the bank. Pick version 4 or version 5, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. The starter is skipped. Type a door number to light it up red on the model.</p>
+    <p>The Locker screen card runs the kiosk software. Enter a 6 digit code or tap the scanner and a door swings open on the model with a package inside. Tap an open door on the model to close it, or tap any closed door to open it. Code 999999 opens technician mode, and its door repair flow opens and closes the matching door on the model.</p>
     <p>The chart shows the whole day. The dashed lines are your limits. Anything above them is a problem hour.</p>
     <h3>Okay, now the details</h3>
     <p>Sun position comes from the NOAA solar equations for the latitude and longitude you enter. Clear sky sunlight comes from the ASHRAE monthly clear sky model, split into direct beam, sky light, and light bounced off the ground.</p>
@@ -348,6 +357,8 @@ let LAYOUT = null;
 try { LAYOUT = JSON.parse(localStorage.getItem(LKEY)); } catch (e) {}
 if (!LAYOUT || !Array.isArray(LAYOUT.mods) || !LAYOUT.mods.length) LAYOUT = defaultLayout();
 let FIND = 0;
+// open doors: number -> { pkg: package inside, ang: current swing, target: swing target }
+const OPEN = new Map();
 function saveLayout() { try { localStorage.setItem(LKEY, JSON.stringify(LAYOUT)); } catch (e) {} }
 function fixLayout() {
   const m = LAYOUT.mods;
@@ -387,7 +398,7 @@ function readState() {
   const S = {
     lat: g('lat'), lon: g('lon'), dst: $('dst').checked,
     month: parseInt($('month').value, 10), day: g('day'), hour: g('hour'),
-    ver: LAYOUT.ver, showNums: $('showNums').checked, find: FIND, mods: LAYOUT.mods, nums: numberLayout(),
+    ver: LAYOUT.ver, open: OPEN, showNums: $('showNums').checked, find: FIND, mods: LAYOUT.mods, nums: numberLayout(),
     modW: clamp(g('modW'), 18, 60), modH: clamp(g('modH'), 48, 108), modD: clamp(g('modD'), 12, 40),
     color: $('color').value, absorb: clamp(g('absorb'), 0.05, 0.98),
     consoleType: $('consoleType').value, scrCol: 'center',
@@ -686,6 +697,40 @@ function doorWeights(n) {
   return w;
 }
 
+// Door rectangles for one module in inches from its top left corner (lower section only).
+function doorRects(S, mod, nums) {
+  const out = [];
+  if (mod.type === 'starter' || !nums) return out;
+  const g = SEAM_IN, mid = S.modW / 2, bot = S.lowH - 2.5;
+  const cols = [[g / 2, mid - g / 2], [mid + g / 2, S.modW - g / 2]];
+  const counts = mod.type === 'q' ? [2, 1] : mod.cols;
+  cols.forEach(([x0, x1], col) => {
+    const n = counts[col];
+    const w = mod.type === 'q' ? new Array(n).fill(1) : doorWeights(n);
+    const sum = w.reduce((a, v) => a + v, 0);
+    let y = 0;
+    w.forEach((u, k) => {
+      const y1 = y + bot * u / sum;
+      out.push({ x0, x1, y0: y, y1, n: nums[col].first + k, col, hingeLeft: col === 0 });
+      y = y1;
+    });
+  });
+  return out;
+}
+
+function panelTexture(S, colorHex, r, w, dh) {
+  const cw = 128, ch = Math.max(16, Math.round(128 * dh / w));
+  const c = document.createElement('canvas'); c.width = cw; c.height = ch;
+  const x = c.getContext('2d');
+  x.fillStyle = colorHex; x.fillRect(0, 0, cw, ch);
+  x.strokeStyle = shadeHex(colorHex, 0.55); x.lineWidth = 3; x.strokeRect(1, 1, cw - 2, ch - 2);
+  x.font = `800 ${Math.round(Math.min(ch * 0.55, cw * 0.3))}px system-ui, sans-serif`;
+  x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = 'rgba(17,17,17,0.8)';
+  x.fillText(String(r.n), cw / 2, ch / 2 + 1);
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+  return t;
+}
+
 function doorTexture(S, mod, colorHex, nums) {
   const isConsole = mod.type === 'starter';
   const cw = 512, ch = Math.round(512 * S.lowH / S.modW);
@@ -706,6 +751,24 @@ function doorTexture(S, mod, colorHex, nums) {
     return ys;
   };
   const label = (x0, x1, y0, y1, num) => {
+    const op = S.open.get(num);
+    if (op) {
+      // open door: dark cavity, with a package on the floor when one is inside
+      const gr = x.createLinearGradient(0, y0, 0, y1);
+      gr.addColorStop(0, '#1e2124'); gr.addColorStop(1, '#3a3e43');
+      x.fillStyle = gr; x.fillRect(x0 + 2, y0 + 2, x1 - x0 - 4, y1 - y0 - 4);
+      x.strokeStyle = '#55595e'; x.lineWidth = 3;
+      x.strokeRect(x0 + 0.6 * pxIn, y0 + 0.6 * pxIn, x1 - x0 - 1.2 * pxIn, y1 - y0 - 1.2 * pxIn);
+      if (op.pkg) {
+        const bw = (x1 - x0) * 0.62, bh = Math.min((y1 - y0) * 0.62, bw * 0.75);
+        const bx = (x0 + x1) / 2 - bw / 2, by = y1 - 0.9 * pxIn - bh;
+        x.fillStyle = '#c49a62'; x.fillRect(bx, by, bw, bh);
+        x.fillStyle = '#a77c46'; x.fillRect(bx, by, bw, bh * 0.16);
+        x.fillStyle = '#e9dcc2'; x.fillRect(bx + bw * 0.42, by, bw * 0.16, bh);
+        x.fillStyle = '#ffffff'; x.fillRect(bx + bw * 0.08, by + bh * 0.5, bw * 0.26, bh * 0.24);
+      }
+      return;
+    }
     const hit = num === S.find;
     if (hit) { x.fillStyle = '#c8102e'; x.fillRect(x0 + 3, y0 + 3, x1 - x0 - 6, y1 - y0 - 6); }
     if (!S.showNums && !hit) return;
@@ -734,6 +797,7 @@ function doorTexture(S, mod, colorHex, nums) {
       const edges = [top].concat(ys, [bot]);
       for (let k = 0; k < edges.length - 1; k++) {
         if (nums) label(x0, x1, edges[k], edges[k + 1], nums[col].first + k);
+        if (nums && S.open.has(nums[col].first + k)) continue;
         const cy = (edges[k] + edges[k + 1]) / 2;
         const kx = col === 0 ? x1 - 0.9 * pxIn : x0 + 0.9 * pxIn;
         x.fillStyle = shadeHex(colorHex, 0.5);
@@ -863,7 +927,7 @@ function build(S) {
   const bw = maxX - minX, bd = maxZ - minZ;
   bankHeightFt = H; bankWidthFt = Math.max(bw, bd);
   const thS = place[si].th;
-  parts = { lows: [], strips: [], side, screen: null, hatMat: null, W, Hl, hs, D, conS: place[si].s };
+  parts = { lows: [], strips: [], doors: [], side, screen: null, hatMat: null, W, Hl, hs, D, conS: place[si].s };
 
   const hatMat = new THREE.MeshStandardMaterial({ color: paint, roughness: 0.45, metalness: 0.15 });
   const footShape = new THREE.Shape();
@@ -895,6 +959,24 @@ function build(S) {
     low.castShadow = true; low.receiveShadow = true;
     low.userData = ud;
     g.add(low); parts.lows.push(low);
+    // swinging door panels for open doors
+    doorRects(S, m, S.nums.mods[i]).forEach(r => {
+      const op = S.open.get(r.n);
+      if (!op) return;
+      const w = (r.x1 - r.x0) / 12, dh = (r.y1 - r.y0) / 12;
+      const pivot = new THREE.Group();
+      const hx = -W / 2 + (r.hingeLeft ? r.x0 : r.x1) / 12;
+      pivot.position.set(hx, base + Hl - (r.y0 + r.y1) / 24, D / 2 + 0.02);
+      const panel = new THREE.Mesh(new THREE.BoxGeometry(w, dh, 0.05),
+        new THREE.MeshStandardMaterial({ map: panelTexture(S, paint, r, w, dh), roughness: 0.5, metalness: 0.1 }));
+      panel.position.set((r.hingeLeft ? 1 : -1) * w / 2, 0, 0.025);
+      panel.castShadow = true;
+      panel.userData = { doorN: r.n };
+      pivot.add(panel);
+      pivot.rotation.y = (r.hingeLeft ? -1 : 1) * op.ang;
+      g.add(pivot);
+      parts.doors.push({ pivot, n: r.n, sign: r.hingeLeft ? -1 : 1 });
+    });
     const stripGeo = new THREE.BoxGeometry(W, hs, D, 8, 1, 1);
     const stripFront = heatMaterial({ map: stripTexture(S, paint, isCon) });
     addColorAttr(stripGeo);
@@ -1306,9 +1388,111 @@ function recompute(rebuild) {
   updateMoment();
 }
 
+/* ---------------- Doors: open, close, swing ---------------- */
+const SWING = 1.9;
+let animOn = false, lastT = 0;
+function animDoors(t) {
+  const dt = lastT ? Math.min(0.05, (t - lastT) / 1000) : 0.016;
+  lastT = t;
+  let moving = false, closed = false;
+  OPEN.forEach((op, n) => {
+    if (op.ang !== op.target) {
+      const step = 2.6 * dt;
+      op.ang = op.ang < op.target ? Math.min(op.target, op.ang + step) : Math.max(op.target, op.ang - step);
+      moving = true;
+      if (op.target === 0 && op.ang === 0) { OPEN.delete(n); closed = true; }
+    }
+  });
+  if (parts) parts.doors.forEach(d => { const op = OPEN.get(d.n); if (op) d.pivot.rotation.y = d.sign * op.ang; });
+  if (closed) { S = readState(); build(S); updateMoment(); drawOpenList(); }
+  requestRender();
+  if (moving) requestAnimationFrame(animDoors); else { animOn = false; lastT = 0; }
+}
+function kickAnim() { if (!animOn) { animOn = true; lastT = 0; requestAnimationFrame(animDoors); } }
+function openDoor(n, pkg) {
+  if (!n || OPEN.has(n) && OPEN.get(n).target > 0) return;
+  OPEN.set(n, { pkg, ang: 0, target: SWING });
+  S = readState(); build(S); updateMoment(); drawOpenList(); kickAnim();
+}
+function closeDoor(n) {
+  const op = OPEN.get(n);
+  if (!op) return;
+  op.target = 0; kickAnim();
+}
+function drawOpenList() {
+  const list = [...OPEN.entries()].filter(([, o]) => o.target > 0).map(([n]) => n).sort((a, b) => a - b);
+  $('openList').textContent = list.length ? `Open: ${list.join(', ')}` : 'All doors closed';
+  $('closeAll').hidden = !list.length;
+}
+$('closeAll').addEventListener('click', () => OPEN.forEach((o, n) => closeDoor(n)));
+function allDoors() {
+  const out = [];
+  numberLayout().mods.forEach(r => { if (r) r.forEach(c => { for (let k = 0; k < c.n; k++) out.push(c.first + k); }); });
+  return out;
+}
+// door number for the c-th numbered column (1 based) and s-th door from the top
+function doorAtColSlot(c, s) {
+  const cols = [];
+  numberLayout().mods.forEach(r => { if (r) r.forEach(x => cols.push(x)); });
+  const col = cols[clamp(c, 1, cols.length) - 1];
+  return col ? col.first + clamp(s, 1, col.n) - 1 : null;
+}
+
+// tap on the model: open a closed door, close an open one
+const ray = new THREE.Raycaster(), tapPt = new THREE.Vector2();
+let tapStart = null;
+renderer.domElement.addEventListener('pointerdown', e => { tapStart = { x: e.clientX, y: e.clientY, n: ptrs.size }; });
+renderer.domElement.addEventListener('pointerup', e => {
+  if (!tapStart || tapStart.n > 1 || Math.hypot(e.clientX - tapStart.x, e.clientY - tapStart.y) > 6) { tapStart = null; return; }
+  tapStart = null;
+  const rect = renderer.domElement.getBoundingClientRect();
+  tapPt.set((e.clientX - rect.left) / rect.width * 2 - 1, -((e.clientY - rect.top) / rect.height) * 2 + 1);
+  ray.setFromCamera(tapPt, camera);
+  const hits = ray.intersectObjects(bank.children, true);
+  for (const hit of hits) {
+    const ud = hit.object.userData || {};
+    if (ud.doorN) { closeDoor(ud.doorN); return; }
+    if (ud.i !== undefined && parts.lows.includes(hit.object)) {
+      if (!hit.face || hit.face.normal.z < 0.5 || !hit.uv) return;
+      const xIn = hit.uv.x * S.modW, yIn = (1 - hit.uv.y) * S.lowH;
+      const r = doorRects(S, LAYOUT.mods[ud.i], S.nums.mods[ud.i]).find(d => xIn >= d.x0 && xIn <= d.x1 && yIn >= d.y0 && yIn <= d.y1);
+      if (r) { if (OPEN.has(r.n)) closeDoor(r.n); else openDoor(r.n, Math.random() < 0.5); }
+      return;
+    }
+    return;
+  }
+});
+
+/* ---------------- Locker screen bridge ---------------- */
+const kioskEl = $('kiosk');
+function sendKiosk(msg) { try { kioskEl.contentWindow.postMessage(Object.assign({ src: 'parcelsun' }, msg), '*'); } catch (e) {} }
+function sendLayout() {
+  const cols = [];
+  const nums = numberLayout();
+  nums.mods.forEach(r => { if (r) r.forEach(c => cols.push(c.n)); });
+  sendKiosk({ type: 'layout', cols, total: nums.total });
+}
+kioskEl.addEventListener('load', sendLayout);
+sendLayout();
+window.addEventListener('message', e => {
+  if (e.source !== kioskEl.contentWindow) return;
+  const d = e.data || {};
+  if (d.src !== 'kiosk') return;
+  if (d.type === 'open') {
+    const free = allDoors().filter(n => !OPEN.has(n));
+    const n = free.length ? free[Math.floor(Math.random() * free.length)] : null;
+    sendKiosk({ type: 'opened', n });
+    if (n) openDoor(n, true);
+  }
+  if (d.type === 'ready') sendLayout();
+  if (d.type === 'size' && d.h > 100) kioskEl.style.height = d.h + 'px';
+  if (d.type === 'techOpen') openDoor(doorAtColSlot(d.c, d.s), false);
+  if (d.type === 'techClose') closeDoor(doorAtColSlot(d.c, d.s));
+});
+
 /* ---------------- Layout editor ---------------- */
 const TYPE_NAMES = { adder: 'Adder', q: 'Q unit', starter: 'Starter' };
-function layoutChanged() { fixLayout(); saveLayout(); renderLayout(); refind(false); recompute(true); aimCam(false); requestRender(); }
+function layoutChanged() { OPEN.clear(); drawOpenList(); fixLayout(); sendLayout(); saveLayout(); renderLayout(); refind(false); recompute(true); aimCam(false); requestRender(); }
 function renderLayout() {
   $('ver').value = LAYOUT.ver;
   const list = $('modList');
@@ -1394,6 +1578,7 @@ $('addAdderL').addEventListener('click', () => { LAYOUT.mods[0].turn = 'none'; L
 $('addAdderR').addEventListener('click', () => { LAYOUT.mods.push(newAdder(LAYOUT.ver)); layoutChanged(); });
 $('addQ').addEventListener('click', () => { LAYOUT.mods.push({ type: 'q', turn: 'none', cols: [2, 1] }); layoutChanged(); });
 renderLayout();
+drawOpenList();
 
 document.querySelectorAll('input, select').forEach(el => {
   if (el.id === 'hour' || el.id === 'heatView' || el.closest('#layoutCard')) return;
