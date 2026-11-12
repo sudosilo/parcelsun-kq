@@ -229,7 +229,7 @@
       <span id="dnOut"></span>
     </div>
     <div class="sub" style="display:block;margin-bottom:6px" id="dnTotal"></div>
-    <div class="sub" style="display:block;margin-bottom:6px">Slot sizes, top to bottom in each column: S small, M medium, M2 medium two, L large, XL extra large, SCREEN the screen cabinet. A column is 29 units: S is 1, M is 2, M2 is 3, L is 4, XL is 7, SCREEN is 8.</div>
+    <div class="sub" style="display:block;margin-bottom:6px">Slot sizes, top to bottom in each column: S small, M medium, M2 medium two, L large, XL extra large, SCREEN the screen cabinet. Heights in smalls, measured off a version 3 bank: S 1, M 1.71, M2 2.93, L 4.36, XL 7.29, SCREEN 8.07. A column is 28.57 smalls.</div>
     <div id="modList"></div>
     <div class="dn-edit">
       <button id="addAdderL">Adder on left</button>
@@ -410,7 +410,7 @@
     <p>Picking where a locker goes and which way it faces costs almost nothing before install. Fixing heat damage after install costs a truck roll every time. This shows which placements will cook the screen and the boards and which ones stay workable.</p>
     <h3>How to read it</h3>
     <p>The 3D view shows the locker, the sun, and the shadows at the time on the slider. With Heat view on, every surface is tinted by how hot it is: pale blue is cool, yellow is warm, red is very hot. Heat builds toward the top of each section, spreads out from the screen console into the modules beside it, and shows on the back of the console where the gear sits. Tap Back to look at the back of the locker.</p>
-    <p>The Layout card sets the bank. Versions 2 and 3 have the screen and keypad, and the Locker screen card runs that kiosk. Versions 4 and 5 have no screen: the starter is just another column of package doors, and the Phone pickup card connects over Bluetooth instead. Pick a version, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. Every module is two columns wide, the starter included, and every door is one of a fixed set of slot sizes measured off a real bank: small, medium, medium two, large and extra large. A column is 29 units tall. Small is 1 unit, medium 2, medium two 3, large 4, extra large 7, and the screen cabinet takes 8. Each column in the Layout card lists its slots top to bottom, like M2 M2 M S M S M S M2 L M2 L, and you edit that list to match the bank in front of you. The line above each list shows the units used, and turns red when they do not add up to 29. The starter holds the screen cabinet in one column with doors above and below it, and Screen column picks the side. A Q unit is the oversize module: two tall doors stacked on the left and one full height door on the right. Save to Field Twin keeps the whole bank, slot by slot, on that locker. Type a door number to light it up red on the model.</p>
+    <p>The Layout card sets the bank. Versions 2 and 3 have the screen and keypad, and the Locker screen card runs that kiosk. Versions 4 and 5 have no screen: the starter is just another column of package doors, and the Phone pickup card connects over Bluetooth instead. Pick a version, add adders on either end, add Q units, and turn any module around an outside or inside corner to build L and C shapes. Door 1 is the top of the first column. Numbers run down each column, then move to the next column. Every module is two columns wide, the starter included, and every door is one of a fixed set of slot sizes measured off a real bank: small, medium, medium two, large and extra large. Heights are counted in smalls. A medium is 1.71 smalls, a medium two 2.93, a large 4.36, an extra large 7.29, which is a medium two plus a large, and the screen cabinet 8.07, which is a medium, two smalls and a large. A column is 28.57 smalls tall. These came from close photos of a version 3 bank, with every seam in four columns fitted at once, and they apply to version 3. Versions 4 and 5 have not been measured yet. Each column in the Layout card lists its slots top to bottom, like M2 M2 M S M S M S M2 L M2 L, and you edit that list to match the bank in front of you. The line above each list says whether the slots fill the column, and turns red with the shortfall when they do not. The starter holds the screen cabinet in one column with doors above and below it, and Screen column picks the side. A Q unit is the oversize module: two tall doors stacked on the left and one full height door on the right. Save to Field Twin keeps the whole bank, slot by slot, on that locker. Type a door number to light it up red on the model.</p>
     <p>The Locker screen card runs the kiosk software. Enter a 6 digit code or tap the scanner and a door swings open on the model with a package inside. Tap an open door on the model to close it, or tap any closed door to open it. Code 999999 opens technician mode, and its door repair flow opens and closes the matching door on the model.</p>
     <p>The Wrap graphic card puts photos across the whole front of the bank, like a vinyl wrap. Add several photos and they line up side by side, left to right, at one shared height, acting as one picture. Fit bank width makes that picture exactly as wide as the bank and lets it move up and down as one unit. Stretch to the bank fills the full length and height. Keep photo shape holds its proportions, with Size and Stretch wide to change it. Dragging the preview moves it.</p>
     <p>The chart shows the whole day. The dashed lines are your limits. Anything above them is a problem hour.</p>
@@ -459,17 +459,21 @@ const PAINT = {
 };
 
 // Bank layout: modules in order left to right as you face the first front. Every module is two columns wide.
-// Each column is a string of slot letters, top to bottom. A column is 29 units tall, measured off a real bank:
-// S small 1, M medium 2, N medium two 3, L large 4, X extra large 7, C the screen and keypad cabinet 8,
-// T one of the two stacked Q unit doors 14.5, F the full height Q unit door 29.
+// Each column is a string of slot letters, top to bottom. Slot heights are in smalls: one small door, seam included, is 1.
+// They were measured from close photos of a version 3 bank by fitting every seam in four columns at once, with the
+// camera angle solved for each column. The fit lands within a pixel, and the three column kinds come out the same
+// height without being told to. S small 1, M medium 1.71, N medium two 2.93, L large 4.36, X extra large 7.29
+// (a medium two plus a large), C the screen and keypad cabinet 8.07 (a medium, two smalls and a large),
+// T one of the two stacked Q unit doors, F the full height Q unit door.
 // type: adder (two door columns), q (Q unit: two tall doors beside one full height door), starter (the screen cabinet
 // sits in one column with doors above and below it, beside an ordinary door column).
 // turn: corner before this module. out wraps around an outside corner, in turns into an inside corner.
 const LKEY = 'parcelsun-layout-v3';
-const SLOT_U = { S: 1, M: 2, N: 3, L: 4, X: 7, C: 8, T: 14.5, F: 29 };
+const SLOT_U = { S: 1, M: 1.71, N: 2.93, L: 4.36, X: 7.29, C: 8.07, T: 14.285, F: 28.57 };
 const SLOT_NAME = { S: 'S', M: 'M', N: 'M2', L: 'L', X: 'XL', C: 'SCREEN', T: 'QH', F: 'QF' };
 const SLOT_WORD = { S: 'small', M: 'medium', N: 'medium two', L: 'large', X: 'extra large', C: 'screen', T: 'Q half', F: 'Q full' };
-const COL_UNITS = 29;
+const COL_UNITS = 28.57;
+const colFull = u => Math.abs(u - COL_UNITS) < 0.06;
 const COL_A = 'NNMSMSMSNLNL', COL_B = 'NNMSMSMSXNL', COL_CON = 'NNMSMCNNL';
 const isBT = ver => ver === 'v4' || ver === 'v5';
 const colText = c => c.split('').map(t => SLOT_NAME[t]).join(' ');
@@ -572,7 +576,7 @@ function readState() {
   S.scrW = clamp(S.scrW, 4, S.modW / 2 - 4);
   S.scrH = clamp(S.scrH, 3, S.lowH / 2);
   // the screen sits where the layout puts the screen cabinet
-  { const P = panelSpan(S); S.scrH = Math.min(S.scrH, (P.y1 - P.y0) - 9); S.scrY = S.lowH - (P.y0 + (P.y1 - P.y0) * 0.4); $('scrY').value = Math.round(S.scrY); }
+  { const P = panelSpan(S); S.scrH = Math.min(S.scrH, (P.y1 - P.y0) - 9); S.scrY = S.lowH - (P.y0 + (P.y1 - P.y0) * 0.37); $('scrY').value = Math.round(S.scrY); }
   S.gearW = S.hasScreen ? S.wScreen + S.wBoards + S.wRouter + S.wPower : S.wLow;
   return S;
 }
@@ -2051,8 +2055,8 @@ function renderLayout() {
         const u = colUnits(m.cols[c]);
         const sp = document.createElement('span');
         sp.style.flexBasis = '100%';
-        sp.textContent = `${lab}, top to bottom, ${u} of ${COL_UNITS} units`;
-        if (u !== COL_UNITS) sp.style.color = '#c8102e';
+        sp.textContent = `${lab}, top to bottom, ` + (colFull(u) ? 'fills the column' : `${u.toFixed(2)} of ${COL_UNITS} smalls, ${u < COL_UNITS ? 'short' : 'over'} by ${Math.abs(u - COL_UNITS).toFixed(2)}`);
+        if (!colFull(u)) sp.style.color = '#c8102e';
         cols.appendChild(sp);
         const inp = document.createElement('input'); inp.type = 'text'; inp.value = colText(m.cols[c]);
         inp.autocapitalize = 'characters'; inp.autocomplete = 'off'; inp.spellcheck = false;

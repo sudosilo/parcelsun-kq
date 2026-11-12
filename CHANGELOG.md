@@ -1,5 +1,7 @@
 Parcelsun changelog
 
+2026-11-12, v2026.11.12c. Slot heights are now measured, not rounded. Close photos of a version 3 bank were fitted seam by seam across four columns with the camera angle solved, landing within a pixel. In smalls: medium 1.71, medium two 2.93, large 4.36, extra large 7.29, screen cabinet 8.07, column 28.57. The version 3 adder and starter are fixed from that.
+
 2026-11-12, v2026.11.12b. Doors are now fixed slot sizes measured off a real bank: small, medium, medium two, large, extra large, and the screen cabinet, on a column of 29 units. Each column in the Layout card is a list of slots top to bottom that you edit. Standard columns, the starter and the Q unit match the photographed bank. Save to Field Twin keeps the whole bank slot by slot.
 
 2026-11-12, v2026.11.12. The starter module is now two columns like every real module: a screen column with doors above and below the screen and keypad, beside a full column of doors. Screen column picks the side. The old single wide starter column is gone. A locker from Field Twin can carry oversize Q modules, which land on the right end of the bank.

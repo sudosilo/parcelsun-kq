@@ -4,6 +4,6 @@ Parcelsun is a heat model for a parcel locker sitting in the sun, for anyone stu
 
 It models solar heat on the locker with a four module default and a field style locker look. It shows a board strip, hat shadow, console gear heat, and a back view. Version four added even service seams, IT cabinet louvers behind the screen, and console panel detail.
 
-Latest change. 2026-11-12, v2026.11.12b. Doors are now fixed slot sizes measured off a real bank: small, medium, medium two, large, extra large, and the screen cabinet, on a column of 29 units. Each column in the Layout card is a list of slots top to bottom that you edit. Standard columns, the starter and the Q unit match the photographed bank. Save to Field Twin keeps the whole bank slot by slot.
+Latest change. 2026-11-12, v2026.11.12c. Slot heights are now measured, not rounded. Close photos of a version 3 bank were fitted seam by seam across four columns with the camera angle solved, landing within a pixel. In smalls: medium 1.71, medium two 2.93, large 4.36, extra large 7.29, screen cabinet 8.07, column 28.57. The version 3 adder and starter are fixed from that.
 
 Full history is in CHANGELOG.md.
