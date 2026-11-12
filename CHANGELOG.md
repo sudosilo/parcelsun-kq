@@ -1,5 +1,7 @@
 Parcelsun changelog
 
+2026-11-12, v2026.11.12. The starter module is now two columns like every real module: a screen column with doors above and below the screen and keypad, beside a full column of doors. Screen column picks the side. The old single wide starter column is gone. A locker from Field Twin can carry oversize Q modules, which land on the right end of the bank.
+
 2026-11-11, v2026.11.11b. Added the Field Twin card. Sign in with the Field Twin account, tap Find the locker I'm at, and the closest saved locker loads at the time right now with its facing, generation, doors, placement and blockers, blanks filled from the latest locker visit survey. Save to Field Twin writes your adjustments back to that locker.
 
 2026-11-11, v2026.11.11. Added shade blockers. A wall, building or tree is a span of bearings with a top angle, or a height and distance, and the locker gets no direct sun while the sun sits behind it. A sky chart shows the blockers against the day's sun path, and Blocker shade counts the hours. A locker opened from its Field Twin locker page arrives with its name, spot, facing, generation, door count, placement and blockers filled in.
