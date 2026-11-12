@@ -1,5 +1,7 @@
 Parcelsun changelog
 
+2026-11-12, v2026.11.12b. Doors are now fixed slot sizes measured off a real bank: small, medium, medium two, large, extra large, and the screen cabinet, on a column of 29 units. Each column in the Layout card is a list of slots top to bottom that you edit. Standard columns, the starter and the Q unit match the photographed bank. Save to Field Twin keeps the whole bank slot by slot.
+
 2026-11-12, v2026.11.12. The starter module is now two columns like every real module: a screen column with doors above and below the screen and keypad, beside a full column of doors. Screen column picks the side. The old single wide starter column is gone. A locker from Field Twin can carry oversize Q modules, which land on the right end of the bank.
 
 2026-11-11, v2026.11.11b. Added the Field Twin card. Sign in with the Field Twin account, tap Find the locker I'm at, and the closest saved locker loads at the time right now with its facing, generation, doors, placement and blockers, blanks filled from the latest locker visit survey. Save to Field Twin writes your adjustments back to that locker.
